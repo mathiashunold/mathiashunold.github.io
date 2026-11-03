@@ -4,7 +4,7 @@
  *  - sonst (iPhone/Safari, Firefox): zxing-wasm 3.1.5 aus lib/ (selbst ausgeliefert, MIT/Apache-2.0)
  * Die Etiketten (Cut Rite) enthalten den Pfad des CNC-Programms, z. B.
  *   01_Aufträge\2000\0_CADT\00_Test\01_010_UK_Polster  →  Programm «01_010_UK_Polster» → Pos. 1.10
- * API:  Scanner.open(text => …)   Scanner.deuten(text) → {link, nr, hash} | {prog, h, u}
+ * API:  Scanner.open(text => …, {beimSchliessen})   Scanner.deuten(text) → {link, nr, hash} | {prog, h, u}
  */
 (function(){
 'use strict';
@@ -100,12 +100,13 @@ function ui(){
   return el;
 }
 
-function open(onCode){
+function open(onCode, optionen){
+  const beimSchliessen = (optionen && optionen.beimSchliessen) || (() => {});
   const el = ui(), video = el.querySelector('video'), meldung = el.querySelector('.meldung');
   const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', {willReadFrequently:true});
   let stream = null, aktiv = true, laeuft = false, timer = 0;
   const zeige = t => { meldung.hidden = !t; meldung.textContent = t || ''; };
-  const zu = () => { aktiv = false; clearTimeout(timer); if (stream) stream.getTracks().forEach(t => t.stop()); el.remove(); document.removeEventListener('keydown', esc); };
+  const zu = () => { if (!aktiv && !el.isConnected) return; aktiv = false; clearTimeout(timer); if (stream) stream.getTracks().forEach(t => t.stop()); el.remove(); document.removeEventListener('keydown', esc); beimSchliessen(); };
   const esc = ev => { if (ev.key === 'Escape') zu(); };
   document.addEventListener('keydown', esc);
   el.querySelector('.zu').addEventListener('click', zu);
@@ -161,7 +162,7 @@ function open(onCode){
     zeige('Die Kamera ist hier nicht verfügbar (Seite über https öffnen). Alternativ «Foto» antippen.');
     return {close: zu};
   }
-  navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}})
+  navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720}}})
     .then(s => {
       if (!aktiv) { s.getTracks().forEach(t => t.stop()); return; }
       stream = s; video.srcObject = s; video.play().catch(() => {});
