@@ -26,18 +26,30 @@ let decoderP = null;
 function ladeScript(src){
   return new Promise((ok, err) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => err(new Error('Scanner-Bibliothek nicht geladen')); document.head.appendChild(s); });
 }
+// Eingebauter Leser (BarcodeDetector): manche Browser melden «data_matrix», werfen aber beim Lesen
+// «Barcode detection not implemented» (z. B. Chrome auf macOS/Windows, Android ohne Play-Dienste).
+// Deshalb einmal an einem leeren Bild ausprobieren und bei jedem Fehler dauerhaft auf zxing-wasm wechseln.
+let ohneEingebaut = false;
+async function eingebauterLeser(){
+  if (ohneEingebaut || !('BarcodeDetector' in window)) return null;
+  try {
+    const f = await BarcodeDetector.getSupportedFormats();
+    if (!f.includes('data_matrix')) return null;
+    const bd = new BarcodeDetector({formats: FORMATE_BD.filter(x => f.includes(x))});
+    const probe = document.createElement('canvas'); probe.width = probe.height = 32;
+    probe.getContext('2d').fillRect(0, 0, 8, 8);
+    await bd.detect(probe);                                   // wirft, wenn nicht wirklich vorhanden
+    return async src => {
+      try { const r = await bd.detect(src); return r.length ? r[0].rawValue : null; }
+      catch(e) { ohneEingebaut = true; decoderP = null; return null; }   // nächste Runde mit zxing
+    };
+  } catch(e) { ohneEingebaut = true; return null; }
+}
 async function decoder(){
   if (decoderP) return decoderP;
   decoderP = (async () => {
-    if ('BarcodeDetector' in window) {
-      try {
-        const f = await BarcodeDetector.getSupportedFormats();
-        if (f.includes('data_matrix')) {
-          const bd = new BarcodeDetector({formats: FORMATE_BD.filter(x => f.includes(x))});
-          return async src => { const r = await bd.detect(src); return r.length ? r[0].rawValue : null; };
-        }
-      } catch(e){}
-    }
+    const eingebaut = await eingebauterLeser();
+    if (eingebaut) return eingebaut;
     if (!window.ZXingWASM) await ladeScript(BASE + 'lib/zxing-reader.js');
     ZXingWASM.prepareZXingModule({overrides:{locateFile:(p, pre) => p.endsWith('.wasm') ? BASE + 'lib/zxing_reader.wasm' : pre + p}, fireImmediately:true});
     const opt = {formats:FORMATE_ZX, tryHarder:true, tryRotate:true, tryInvert:false, maxNumberOfSymbols:1};
