@@ -116,6 +116,13 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
 .badge.run{background:var(--run-bg);color:var(--run)}
 .badge.fail{background:var(--warn-bg);color:var(--warn)}
 .empty{padding:22px;text-align:center;color:var(--muted)}
+.scanbtn{width:100%;min-height:56px;font-size:19px;margin-bottom:18px}
+.scanbtn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wahl{position:fixed;inset:0;z-index:30;background:rgba(10,14,18,.5);display:flex;align-items:flex-end;justify-content:center;padding:16px}
+.wahl .card{width:100%;max-width:480px;padding:18px;max-height:80vh;overflow:auto}
+.wahl h2{margin-bottom:4px}.wahl p{margin:0 0 12px;color:var(--muted);font-size:15px}
+.wahl .opt{display:block;width:100%;text-align:left;margin-top:8px}
+.wahl .opt small{display:block;font-weight:400;color:var(--muted);font-size:14px}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);
   padding:10px 16px;border-radius:10px;font-size:15px;z-index:20;max-width:calc(100% - 32px)}
 </style>
@@ -177,6 +184,11 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
       </div>
     </section>
 
+    <button class="btn primary scanbtn" id="scanBtn" type="button" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 8h3v3H8zM13 13h3v3h-3zM13 8h3M8 16h2"/></svg>
+      Etikett scannen
+    </button>
+
     <section aria-labelledby="listH">
       <h2 id="listH">Aufträge</h2>
       <input class="field search" id="q" type="search" placeholder="Suchen: Auftrag, Objekt, Kunde" aria-label="Aufträge suchen">
@@ -185,7 +197,12 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
   </div>
 </div>
 
+<div class="wahl" id="wahl" hidden role="dialog" aria-modal="true" aria-labelledby="wahlH">
+  <div class="card"><h2 id="wahlH">Welcher Auftrag?</h2><p id="wahlTxt"></p><div id="wahlOpts"></div>
+    <button class="btn block" id="wahlZu" type="button">Abbrechen</button></div>
+</div>
 <div class="toast" id="toast" role="status" hidden></div>
+<script src="scanner.js"></script>
 
 <script>
 (function(){
@@ -269,7 +286,37 @@ async function zeigeApp(){
   $('#list').innerHTML = '<div class="card empty">Lade Aufträge …</div>';
   await ladeJobs();
   if (S.rolle === 'planung' && S.token) { ladeRuns(); startRunTimer(); }
+  $('#scanBtn').hidden = !window.Scanner;
+  const q = new URLSearchParams(location.search);
+  if (q.get('scan')) { history.replaceState(null, '', location.pathname); scanErgebnis(q.get('scan')); }
 }
+
+// ---------- Etikett scannen ----------
+$('#scanBtn').addEventListener('click', () => window.Scanner && Scanner.open(scanErgebnis));
+function oeffne(nr, key){ location.href = encodeURIComponent(nr) + '/' + (key ? '#' + key : ''); }
+function scanErgebnis(text){
+  const d = Scanner.deuten(text);
+  if (d.link) {
+    const u = new URL(d.text, location.href);
+    if (u.origin === location.origin) { location.href = u.href; return; }
+    return toast('Dieser Code gehört nicht zur 3D-Werkstatt.');
+  }
+  // 1. über das CNC-Programm (genau)
+  let treffer = S.jobs.filter(j => j.progs && j.progs[d.prog]).map(j => ({j, key:'p-' + j.progs[d.prog]}));
+  // 2. Rückfall: Nummer im Programmnamen «01_010_…» → Pos. 1.10
+  let geschaetzt = false;
+  if (!treffer.length && d.h != null) { treffer = S.jobs.map(j => ({j, key:`p-${d.h}-${d.u}`})); geschaetzt = true; }
+  if (!treffer.length) return toast(`Kein Auftrag zu «${d.prog || d.text}» gefunden.`);
+  if (treffer.length === 1) return oeffne(treffer[0].j.nr, treffer[0].key);
+  const pos = treffer[0].key.slice(2).replace('-', '.');
+  $('#wahlTxt').textContent = `Etikett ${d.prog} (Pos. ${pos}) ${geschaetzt ? 'kann zu mehreren Aufträgen gehören' : 'kommt in mehreren Aufträgen vor'}.`;
+  $('#wahlOpts').innerHTML = treffer.sort((a, b) => String(b.j.aktualisiert).localeCompare(String(a.j.aktualisiert)))
+    .map(t => `<button class="btn opt" type="button" data-nr="${esc(t.j.nr)}" data-key="${esc(t.key)}">Auftrag ${esc(t.j.nr)} – ${esc(t.j.titel)}<small>${esc(t.j.kunde)}${t.j.kunde ? ' · ' : ''}Planstand ${esc(t.j.stand || '–')}</small></button>`).join('');
+  $('#wahl').hidden = false; $('#wahlOpts button').focus();
+}
+$('#wahlOpts').addEventListener('click', ev => { const b = ev.target.closest('[data-nr]'); if (b) oeffne(b.dataset.nr, b.dataset.key); });
+$('#wahlZu').addEventListener('click', () => { $('#wahl').hidden = true; $('#scanBtn').focus(); });
+$('#wahl').addEventListener('click', ev => { if (ev.target.id === 'wahl') $('#wahl').hidden = true; });
 async function ladeJobs(){
   try {
     const enc = await fetchJSON('auftraege.json');
