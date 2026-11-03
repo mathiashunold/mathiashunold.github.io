@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>3D-Werkstatt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6EAEC; --surface:#FFFFFF; --surface-2:#F1F3F4; --ink:#1A2024; --muted:#5A656C;
+  --line:#CBD2D6; --accent:#1C5FD1; --on-accent:#FFFFFF; --warn:#B8323A; --warn-bg:#FBE9EA;
+  --ok:#1E7A46; --ok-bg:#E5F3EA; --run:#8A5A00; --run-bg:#FFF3D6; --shadow:0 6px 24px rgba(20,30,40,.10);
+  --font:"Barlow Semi Condensed","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171A; --surface:#1D2226; --surface-2:#252B30; --ink:#E4E8EB; --muted:#97A2A9;
+    --line:#343C42; --accent:#6AA2FF; --on-accent:#0A1830; --warn:#FF7378; --warn-bg:#3A1C1F;
+    --ok:#6FD39A; --ok-bg:#16301F; --run:#F2C15C; --run-bg:#3A2E12; --shadow:0 6px 24px rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13171A; --surface:#1D2226; --surface-2:#252B30; --ink:#E4E8EB; --muted:#97A2A9;
+  --line:#343C42; --accent:#6AA2FF; --on-accent:#0A1830; --warn:#FF7378; --warn-bg:#3A1C1F;
+  --ok:#6FD39A; --ok-bg:#16301F; --run:#F2C15C; --run-bg:#3A2E12; --shadow:0 6px 24px rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.4;min-height:100vh;
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+
+/* Anmeldung */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+#login .card{width:100%;max-width:400px;padding:28px 24px}
+.brand{font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+h1{margin:0;font-size:28px;line-height:1.1;font-weight:700}
+.lead{margin:6px 0 20px;color:var(--muted);font-size:16px}
+label{display:block;font-size:15px;font-weight:600;margin:0 0 6px}
+.field{width:100%;font-size:18px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);min-height:48px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--surface-2);
+  border-radius:10px;padding:10px 16px;font-size:17px;font-weight:600;min-height:44px;cursor:pointer;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.block{width:100%;margin-top:14px;min-height:50px;font-size:18px}
+.btn:disabled{opacity:.55;cursor:default}
+.msg{min-height:22px;margin-top:10px;font-size:15px}
+.msg.err{color:var(--warn)}
+.hint{font-size:14px;color:var(--muted);margin-top:16px}
+
+/* Kopf */
+.top{display:flex;align-items:center;gap:12px;padding:8px 0 16px}
+.top .t{flex:1;min-width:0}
+.top h1{font-size:26px}
+.role{display:inline-block;font-size:13px;font-weight:600;padding:2px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);vertical-align:middle;margin-left:6px}
+.linkbtn{background:none;border:0;color:var(--accent);font-size:16px;font-weight:600;padding:8px;cursor:pointer;min-height:44px}
+
+section{margin-bottom:20px}
+h2{font-size:20px;margin:0 0 10px;font-weight:700}
+
+/* Hochladen */
+#upload .card{padding:18px}
+.kt{margin:0 0 4px;font-size:18px;font-weight:700}
+.kd{margin:0 0 14px;color:var(--muted);font-size:15px}
+.kd code{font-size:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.linkbtn.inl{padding:0 4px;min-height:0;font-size:14px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;background:var(--surface-2);cursor:pointer}
+.drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface-2))}
+.drop strong{display:block;font-size:18px}
+.drop span{color:var(--muted);font-size:15px}
+.files{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.files li{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.files .k{font-size:13px;font-weight:700;min-width:38px;text-align:center;padding:2px 6px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line)}
+.files .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.files .s{color:var(--muted);font-size:14px;white-space:nowrap}
+.files .x{border:0;background:none;color:var(--muted);font-size:22px;line-height:1;width:36px;height:36px;cursor:pointer;border-radius:8px}
+.files li.miss{border-style:dashed;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
+@media (min-width:560px){.grid{grid-template-columns:140px 1fr 1fr}}
+
+/* Fortschritt */
+.steps{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.steps li{display:flex;gap:10px;align-items:flex-start;font-size:16px;color:var(--muted)}
+.steps li .dot{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);margin-top:1px;display:grid;place-items:center;font-size:13px;font-weight:700}
+.steps li.on{color:var(--ink);font-weight:600}
+.steps li.on .dot{border-color:var(--accent);border-top-color:transparent;animation:spin 1s linear infinite}
+.steps li.done{color:var(--ink)}
+.steps li.done .dot{border-color:var(--ok);background:var(--ok);color:var(--surface)}
+.steps li.fail{color:var(--warn);font-weight:600}
+.steps li.fail .dot{border-color:var(--warn);background:var(--warn);color:var(--surface)}
+.steps small{display:block;font-weight:400;color:var(--muted);font-size:14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.steps li.on .dot{animation:none;border-top-color:var(--accent)}}
+.bar{height:8px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+
+/* Liste */
+.search{margin-bottom:12px}
+.list{display:grid;gap:10px}
+.job{padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+.job .nr{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.job .tt{font-size:20px;font-weight:700;line-height:1.15}
+.job .meta{grid-column:1/-1;font-size:15px;color:var(--muted)}
+.job .acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.job .open{grid-row:1/3;grid-column:2}
+.badge{display:inline-block;font-size:13px;font-weight:600;padding:2px 8px;border-radius:999px}
+.badge.run{background:var(--run-bg);color:var(--run)}
+.badge.fail{background:var(--warn-bg);color:var(--warn)}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);
+  padding:10px 16px;border-radius:10px;font-size:15px;z-index:20;max-width:calc(100% - 32px)}
+</style>
+</head>
+<body>
+
+<!-- Anmeldung -->
+<main id="login" hidden>
+  <form class="card" id="loginForm" autocomplete="on">
+    <p class="brand">Schönmann · Innenausbau</p>
+    <h1>3D-Werkstatt</h1>
+    <p class="lead">Möbel in 3D ansehen – auf dem Handy, Tablet oder PC.</p>
+    <label for="pw">Passwort</label>
+    <input class="field" id="pw" type="password" autocomplete="current-password" required>
+    <button class="btn primary block" id="loginBtn" type="submit">Anmelden</button>
+    <div class="msg err" id="loginMsg" role="alert"></div>
+    <p class="hint">Planung und Werkstatt haben je ein eigenes Passwort. Das Gerät bleibt angemeldet, bis du dich abmeldest.</p>
+  </form>
+</main>
+
+<!-- Übersicht -->
+<div id="app" hidden>
+  <div class="wrap">
+    <div class="top">
+      <div class="t">
+        <p class="brand">Schönmann · Innenausbau</p>
+        <h1>3D-Werkstatt <span class="role" id="roleBadge"></span></h1>
+      </div>
+      <button class="linkbtn" id="logout" type="button">Abmelden</button>
+    </div>
+
+    <section id="upload" hidden aria-labelledby="upH">
+      <h2 id="upH">Neuen Planstand hochladen</h2>
+      <form class="card" id="keyCard" hidden autocomplete="off">
+        <p class="kt">Dieses Gerät für das Hochladen freischalten</p>
+        <p class="kd">Einmal pro Gerät den Upload-Schlüssel von GitHub einfügen (beginnt mit <code>github_pat_</code>, siehe ANLEITUNG.md, Schritt A2).
+          Er bleibt nur auf diesem Gerät gespeichert.</p>
+        <label for="keyIn">Upload-Schlüssel</label>
+        <input class="field" id="keyIn" type="password" spellcheck="false" autocomplete="off" required>
+        <button class="btn primary block" id="keyBtn" type="submit">Freischalten</button>
+        <div class="msg err" id="keyMsg" role="alert"></div>
+      </form>
+      <div class="card" id="upCard" hidden>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="dropHint">
+          <strong>Dateien hierher ziehen oder antippen</strong>
+          <span id="dropHint">DWG und PNX aus CAD+T, optional die XLS-Stückliste</span>
+        </div>
+        <input type="file" id="fileIn" multiple accept=".dwg,.pnx,.xls,.DWG,.PNX,.XLS" hidden>
+        <ul class="files" id="files"></ul>
+        <div class="grid">
+          <div><label for="fNr">Auftrag</label><input class="field" id="fNr" inputmode="numeric" autocomplete="off"></div>
+          <div><label for="fTitel">Objekt</label><input class="field" id="fTitel" autocomplete="off"></div>
+          <div><label for="fKunde">Kunde</label><input class="field" id="fKunde" autocomplete="off"></div>
+        </div>
+        <button class="btn primary block" id="upBtn" type="button" disabled>Hochladen und 3D erzeugen</button>
+        <div class="msg err" id="upMsg" role="alert"></div>
+        <ol class="steps" id="steps" hidden aria-live="polite"></ol>
+        <p class="hint">Upload-Schlüssel auf diesem Gerät gespeichert. <button class="linkbtn inl" id="keyDel" type="button">Entfernen</button></p>
+      </div>
+    </section>
+
+    <section aria-labelledby="listH">
+      <h2 id="listH">Aufträge</h2>
+      <input class="field search" id="q" type="search" placeholder="Suchen: Auftrag, Objekt, Kunde" aria-label="Aufträge suchen">
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+// ---------- Einstellungen ----------
+const API = 'https://api.github.com';
+const TEIL = 20 * 1024 * 1024;          // Grösse eines Upload-Teils (Git-Blob-Grenze ist 100 MB nach base64)
+const K_APP = 'app-pw', K_VIEW = 'ansicht-pw';
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch(e){} };
+const load = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmtMB = b => (b / 1048576).toLocaleString('de-CH', {maximumFractionDigits: 1}) + ' MB';
+const fmtDate = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? iso : d.toLocaleString('de-CH', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); };
+let toastT; function toast(t){ const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, 3500); }
+
+// ---------- Verschlüsselung (passt zu tools/krypto.py) ----------
+const u8 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decrypt(P, pw){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:u8(P.s), iterations:P.n, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  const packed = await crypto.subtle.decrypt({name:'AES-GCM', iv:u8(P.i)}, key, u8(P.c));
+  const stream = new Blob([packed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return await new Response(stream).text();
+}
+async function fetchJSON(path){
+  const r = await fetch(path + '?t=' + Date.now(), {cache:'no-store'});
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('Laden fehlgeschlagen (' + r.status + ')');
+  return r.json();
+}
+
+// ---------- Zustand ----------
+const K_KEY = 'upload-schluessel';
+let S = {rolle:null, ansichtPw:null, token:null, repo:null, jobs:[], runs:[]};
+
+// ---------- Anmeldung ----------
+async function anmelden(pw, still){
+  if (!window.crypto || !crypto.subtle) throw new Error('Dieser Browser unterstützt die Verschlüsselung nicht (Seite über https öffnen).');
+  const z = await fetchJSON('zugang.json');
+  if (!z) throw new Error('Die Seite ist noch nicht eingerichtet (zugang.json fehlt).');
+  try {
+    const p = JSON.parse(await decrypt(z.planung, pw));
+    S.rolle = 'planung'; S.ansichtPw = p.ansicht; S.repo = p.repo; S.token = load(K_KEY);
+  } catch(e) {
+    try { await decrypt(z.ansicht, pw); S.rolle = 'bank'; S.ansichtPw = pw; }
+    catch(e2) { throw new Error(still ? '' : 'Passwort falsch.'); }
+  }
+  store(K_APP, pw); store(K_VIEW, S.ansichtPw);
+}
+$('#loginForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const b = $('#loginBtn'); b.disabled = true; $('#loginMsg').textContent = ''; b.textContent = 'Anmelden …';
+  try { await anmelden($('#pw').value, false); $('#pw').value = ''; await zeigeApp(); }
+  catch(e){ $('#loginMsg').textContent = e.message; }
+  finally { b.disabled = false; b.textContent = 'Anmelden'; }
+});
+$('#logout').addEventListener('click', () => {
+  store(K_APP, null); store(K_VIEW, null); S = {rolle:null, jobs:[], runs:[]}; clearInterval(runTimer);
+  $('#app').hidden = true; $('#login').hidden = false; $('#pw').focus();
+});
+
+async function start(){
+  // angemeldet bleiben; wer sich schon auf einer 3D-Seite (QR-Link) angemeldet hat, ist hier als Werkstatt angemeldet
+  for (const pw of [load(K_APP), load(K_VIEW)]) {
+    if (!pw) continue;
+    try { await anmelden(pw, true); await zeigeApp(); return; } catch(e){}
+  }
+  store(K_APP, null);
+  $('#login').hidden = false;
+}
+
+// ---------- Übersicht ----------
+async function zeigeApp(){
+  $('#login').hidden = true; $('#app').hidden = false;
+  $('#roleBadge').textContent = S.rolle === 'planung' ? 'Planung' : 'Werkstatt';
+  $('#upload').hidden = S.rolle !== 'planung';
+  zeigeUploadBereich();
+  $('#list').innerHTML = '<div class="card empty">Lade Aufträge …</div>';
+  await ladeJobs();
+  if (S.rolle === 'planung' && S.token) { ladeRuns(); startRunTimer(); }
+}
+async function ladeJobs(){
+  try {
+    const enc = await fetchJSON('auftraege.json');
+    S.jobs = enc ? JSON.parse(await decrypt(enc, S.ansichtPw)).auftraege || [] : [];
+  } catch(e){ S.jobs = []; toast('Auftragsliste konnte nicht geladen werden.'); }
+  zeichneListe();
+}
+$('#q').addEventListener('input', zeichneListe);
+
+function zeichneListe(){
+  const q = $('#q').value.trim().toLowerCase();
+  const laufend = S.runs.filter(r => r.status !== 'completed' || r.conclusion !== 'success');
+  const jobs = S.jobs.slice().sort((a, b) => String(b.aktualisiert).localeCompare(String(a.aktualisiert)))
+    .filter(j => !q || [j.nr, j.titel, j.kunde].join(' ').toLowerCase().includes(q));
+  let h = '';
+  for (const r of laufend) {
+    if (q && !r.nr.toLowerCase().includes(q)) continue;
+    const fail = r.status === 'completed';
+    h += `<div class="card job"><div><div class="nr">${esc(r.nr)}</div><div class="tt">${esc(r.titel || 'Neuer Planstand')}</div></div>
+      <div class="meta">${fail ? '<span class="badge fail">Fehler beim Erzeugen</span>' : '<span class="badge run">Wird erzeugt …</span>'} · gestartet ${esc(fmtDate(r.start))}</div>
+      ${fail ? `<div class="acts"><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener">Fehlerdetails auf GitHub</a></div>` : ''}</div>`;
+  }
+  for (const j of jobs) {
+    const link = new URL(encodeURIComponent(j.nr) + '/', location.href).href;
+    h += `<div class="card job"><div><div class="nr">Auftrag ${esc(j.nr)}</div><div class="tt">${esc(j.titel)}</div></div>
+      <a class="btn primary open" href="${esc(encodeURIComponent(j.nr))}/">3D öffnen</a>
+      <div class="meta">${esc(j.kunde)}${j.kunde ? ' · ' : ''}Planstand ${esc(j.stand || '–')} · ${esc(j.teile ?? '?')} Teile</div>
+      <div class="acts">
+        <button class="btn" type="button" data-copy="${esc(link)}">Link kopieren</button>
+        ${S.rolle === 'planung' ? `<button class="btn" type="button" data-csv="${esc(j.nr)}">Positionsliste (CSV)</button>` : ''}
+      </div></div>`;
+  }
+  if (!h) h = `<div class="card empty">${q ? 'Kein Auftrag gefunden.' : (S.rolle === 'planung' ? 'Noch keine Aufträge. Lade oben den ersten Planstand hoch.' : 'Noch keine Aufträge vorhanden.')}</div>`;
+  $('#list').innerHTML = h;
+}
+$('#list').addEventListener('click', async ev => {
+  const c = ev.target.closest('[data-copy]'), v = ev.target.closest('[data-csv]');
+  if (c) { try { await navigator.clipboard.writeText(c.dataset.copy); toast('Link kopiert.'); } catch(e){ prompt('Link:', c.dataset.copy); } }
+  if (v) {
+    try {
+      const enc = await fetchJSON(encodeURIComponent(v.dataset.csv) + '/positionen.json');
+      if (!enc) return toast('Keine Positionsliste vorhanden.');
+      const blob = new Blob([await decrypt(enc, S.ansichtPw)], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Positionslinks_' + v.dataset.csv + '.csv';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch(e){ toast('Positionsliste konnte nicht geladen werden.'); }
+  }
+});
+
+// ---------- GitHub-API (nur Planung) ----------
+async function gh(method, path, body){
+  for (let versuch = 0; ; versuch++) {
+    const r = await fetch(API + path, {method, headers:{'Authorization':'Bearer ' + S.token, 'Accept':'application/vnd.github+json',
+      'X-GitHub-Api-Version':'2022-11-28', ...(body ? {'Content-Type':'application/json'} : {})}, body: body ? JSON.stringify(body) : undefined});
+    if (r.ok) return r.status === 204 ? null : r.json();
+    if (versuch < 2 && (r.status >= 500 || r.status === 429)) { await sleep(2000 * (versuch + 1)); continue; }
+    let t = ''; try { t = (await r.json()).message || ''; } catch(e){}
+    if (r.status === 401) { store(K_KEY, null); S.token = null; zeigeUploadBereich(); throw new Error('Upload-Schlüssel abgelaufen oder ungültig – bitte neu einfügen.'); }
+    if (r.status === 403 || r.status === 404) throw new Error('Der Upload-Schlüssel hat keinen Zugriff auf ' + S.repo + ' (Berechtigungen prüfen). GitHub: ' + r.status + (t ? ' ' + t : ''));
+    throw new Error('GitHub meldet ' + r.status + (t ? ': ' + t : ''));
+  }
+}
+
+// ---------- Gerät freischalten (Upload-Schlüssel bleibt lokal) ----------
+function zeigeUploadBereich(){
+  const hat = !!S.token;
+  $('#keyCard').hidden = hat; $('#upCard').hidden = !hat;
+}
+$('#keyCard').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const k = $('#keyIn').value.trim(), b = $('#keyBtn'); $('#keyMsg').textContent = '';
+  if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(k)) { $('#keyMsg').textContent = 'Das sieht nicht wie ein GitHub-Schlüssel aus (beginnt mit github_pat_).'; return; }
+  b.disabled = true; b.textContent = 'Wird geprüft …';
+  try {
+    const r = await fetch(API + '/repos/' + S.repo, {headers:{'Authorization':'Bearer ' + k, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28'}});
+    if (r.status === 401) throw new Error('Schlüssel ungültig oder abgelaufen.');
+    if (!r.ok) throw new Error('Der Schlüssel hat keinen Zugriff auf ' + S.repo + '.');
+    const info = await r.json();
+    if (info.permissions && !info.permissions.push) throw new Error('Der Schlüssel darf in ' + S.repo + ' nicht schreiben (Contents: Read and write).');
+    store(K_KEY, k); S.token = k; $('#keyIn').value = ''; zeigeUploadBereich(); ladeRuns(); startRunTimer(); toast('Gerät freigeschaltet.');
+  } catch(e){ $('#keyMsg').textContent = e.message; }
+  finally { b.disabled = false; b.textContent = 'Freischalten'; }
+});
+$('#keyDel').addEventListener('click', () => {
+  if (!confirm('Upload-Schlüssel von diesem Gerät entfernen?')) return;
+  store(K_KEY, null); S.token = null; clearInterval(runTimer); S.runs = []; zeigeUploadBereich(); zeichneListe();
+});
+
+// ---------- Dateien wählen ----------
+let F = {dwg:null, pnx:null, xls:null};
+const art = f => { const m = f.name.toLowerCase().match(/\.(dwg|pnx|xls)$/); return m ? m[1] : null; };
+function nimmDateien(list){
+  const unbekannt = [];
+  for (const f of list) { const a = art(f); if (a) F[a] = f; else unbekannt.push(f.name); }
+  if (unbekannt.length) toast('Nicht verwendet: ' + unbekannt.join(', '));
+  if (F.pnx) liesPnx(F.pnx);
+  zeichneDateien();
+}
+function zeichneDateien(){
+  const row = (a, label, opt) => F[a]
+    ? `<li><span class="k">${label}</span><span class="n">${esc(F[a].name)}</span><span class="s">${fmtMB(F[a].size)}</span><button class="x" type="button" data-rm="${a}" aria-label="${label} entfernen">×</button></li>`
+    : `<li class="miss"><span class="k">${label}</span><span class="n">${opt ? 'optional – für Massivholz, KVL, Granit' : 'fehlt noch'}</span></li>`;
+  $('#files').innerHTML = row('dwg', 'DWG') + row('pnx', 'PNX') + row('xls', 'XLS', true);
+  pruefeBereit();
+}
+function pruefeBereit(){ $('#upBtn').disabled = !(F.dwg && F.pnx && $('#fNr').value.trim() && $('#fTitel').value.trim()) || laeuft; }
+['#fNr', '#fTitel', '#fKunde'].forEach(s => $(s).addEventListener('input', pruefeBereit));
+$('#files').addEventListener('click', ev => { const b = ev.target.closest('[data-rm]'); if (b) { F[b.dataset.rm] = null; zeichneDateien(); } });
+const drop = $('#drop');
+drop.addEventListener('click', () => $('#fileIn').click());
+drop.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); $('#fileIn').click(); } });
+$('#fileIn').addEventListener('change', ev => { nimmDateien(ev.target.files); ev.target.value = ''; });
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', ev => nimmDateien(ev.dataTransfer.files));
+
+// PNX (Cut Rite, cp1252): Feld 12 «26399.01», 26 Kunde, 27 Objekt
+async function liesPnx(f){
+  try {
+    const txt = new TextDecoder('windows-1252').decode(await f.slice(0, 200000).arrayBuffer());
+    const z = txt.split(/\r?\n/).find(l => l.split(';').length > 27);
+    if (!z) return;
+    const r = z.split(';');
+    if (!$('#fNr').value) $('#fNr').value = (r[12] || '').split('.')[0].trim();
+    if (!$('#fKunde').value) $('#fKunde').value = (r[26] || '').trim();
+    if (!$('#fTitel').value) $('#fTitel').value = (r[27] || '').trim();
+    pruefeBereit();
+  } catch(e){}
+}
+
+// ---------- Hochladen ----------
+let laeuft = false;
+const STEPS = [['up', 'Dateien hochladen'], ['start', 'Erzeugung starten'], ['build', '3D erzeugen', 'dauert 2–5 Minuten – die Seite darf geschlossen werden'], ['pub', 'Veröffentlichen']];
+let aktSchritt = 'up';
+function zeigeSchritte(akt, info, fail){
+  if (akt !== 'fertig') aktSchritt = akt;
+  const el = $('#steps'); el.hidden = false; let erreicht = false;
+  el.innerHTML = STEPS.map(([k, t, sub]) => {
+    let cls = '';
+    if (k === akt) { cls = fail ? 'fail' : 'on'; erreicht = true; }
+    else if (!erreicht && akt) cls = 'done';
+    if (akt === 'fertig') cls = 'done';
+    const extra = k === akt && info ? info : (cls === 'on' && sub ? sub : '');
+    return `<li class="${cls}"><span class="dot" aria-hidden="true">${cls === 'done' ? '✓' : cls === 'fail' ? '!' : ''}</span><span>${esc(t)}${extra ? '<small>' + extra + '</small>' : ''}</span></li>`;
+  }).join('');
+}
+function b64(blob){
+  return new Promise((ok, err) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => err(r.error); r.readAsDataURL(blob); });
+}
+
+$('#upBtn').addEventListener('click', async () => {
+  const nr = $('#fNr').value.trim().replace(/[^0-9A-Za-z_-]/g, '-').replace(/^-+|-+$/g, '');
+  if (!nr) { $('#upMsg').textContent = 'Bitte eine gültige Auftragsnummer eingeben.'; return; }
+  laeuft = true; pruefeBereit(); $('#upMsg').textContent = ''; aktSchritt = 'up';
+  const repo = '/repos/' + S.repo;
+  try {
+    // 1. Dateien in Teilen als Git-Blobs hochladen
+    const dateien = ['dwg', 'pnx', 'xls'].filter(a => F[a]).map(a => ({art:a, f:F[a]}));
+    const gesamt = dateien.reduce((s, d) => s + d.f.size, 0); let fertig = 0;
+    const tree = [], manifest = [];
+    for (const d of dateien) {
+      const teile = [];
+      for (let o = 0, i = 0; o < d.f.size || (o === 0 && i === 0); o += TEIL, i++) {
+        const stueck = d.f.slice(o, o + TEIL);
+        zeigeSchritte('up', `${fmtMB(fertig)} von ${fmtMB(gesamt)}<div class="bar"><i style="width:${Math.round(100 * fertig / gesamt)}%"></i></div>`);
+        const blob = await gh('POST', repo + '/git/blobs', {content: await b64(stueck), encoding:'base64'});
+        const pfad = `upload/teile/${d.art}.${String(i).padStart(3, '0')}`;
+        tree.push({path:pfad, mode:'100644', type:'blob', sha:blob.sha}); teile.push(pfad);
+        fertig += stueck.size;
+        if (d.f.size === 0) break;
+      }
+      manifest.push({art:d.art, name:d.f.name, groesse:d.f.size, teile});
+    }
+    zeigeSchritte('up', `${fmtMB(gesamt)} von ${fmtMB(gesamt)}<div class="bar"><i style="width:100%"></i></div>`);
+    // 2. Commit auf neuem Branch upload/<nr>-<zeit> (enthält den Code von main + Upload) – startet den Workflow
+    zeigeSchritte('start');
+    const auftrag = {auftrag:$('#fNr').value.trim(), nr, titel:$('#fTitel').value.trim(), kunde:$('#fKunde').value.trim(), dateien:manifest, hochgeladen:new Date().toISOString()};
+    const mb = await gh('POST', repo + '/git/blobs', {content:JSON.stringify(auftrag, null, 2), encoding:'utf-8'});
+    tree.push({path:'upload/auftrag.json', mode:'100644', type:'blob', sha:mb.sha});
+    const main = await gh('GET', repo + '/git/ref/heads/main');
+    const mc = await gh('GET', repo + '/git/commits/' + main.object.sha);
+    const t = await gh('POST', repo + '/git/trees', {base_tree:mc.tree.sha, tree});
+    const c = await gh('POST', repo + '/git/commits', {message:`Upload ${nr}: ${auftrag.titel}`, tree:t.sha, parents:[main.object.sha]});
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    const branch = `upload/${nr}-${stamp}`;
+    await gh('POST', repo + '/git/refs', {ref:'refs/heads/' + branch, sha:c.sha});
+    F = {dwg:null, pnx:null, xls:null}; zeichneDateien();
+    // 3. Auf den Lauf warten
+    await verfolge(branch, auftrag);
+  } catch(e) {
+    zeigeSchritte(aktSchritt, esc(e.message), true);
+    $('#upMsg').textContent = e.message;
+  } finally { laeuft = false; pruefeBereit(); }
+});
+
+async function verfolge(branch, auftrag){
+  const repo = '/repos/' + S.repo; const t0 = Date.now(); let run = null;
+  zeigeSchritte('build');
+  while (Date.now() - t0 < 45 * 60000) {
+    await sleep(run ? 10000 : 5000);
+    const r = await gh('GET', repo + '/actions/runs?branch=' + encodeURIComponent(branch) + '&per_page=1');
+    run = r.workflow_runs && r.workflow_runs[0];
+    if (!run) { if (Date.now() - t0 > 120000) throw new Error('Die Erzeugung ist nicht gestartet. Ist der Workflow im Repo vorhanden und Actions aktiviert?'); continue; }
+    const min = Math.max(0, Math.round((Date.now() - new Date(run.created_at)) / 60000));
+    if (run.status !== 'completed') { zeigeSchritte('build', `läuft seit ${min} Min. – die Seite darf geschlossen werden`); continue; }
+    if (run.conclusion !== 'success') {
+      zeigeSchritte('build', `Fehler. <a href="${esc(run.html_url)}" target="_blank" rel="noopener">Details auf GitHub</a>`, true);
+      ladeRuns(); return;
+    }
+    break;
+  }
+  // 4. Warten, bis GitHub Pages die neue Liste ausliefert
+  zeigeSchritte('pub', 'GitHub Pages braucht meist unter 1 Minute');
+  const seit = auftrag.hochgeladen;
+  for (let i = 0; i < 40; i++) {
+    await ladeJobs();
+    const j = S.jobs.find(j => j.nr === auftrag.nr);
+    if (j && j.hochgeladen === seit) {
+      zeigeSchritte('fertig');
+      $('#steps').insertAdjacentHTML('beforeend', `<li class="done"><span class="dot" aria-hidden="true">✓</span><span>Fertig – <a href="${esc(encodeURIComponent(auftrag.nr))}/">3D öffnen</a></span></li>`);
+      ladeRuns(); return;
+    }
+    await sleep(15000);
+  }
+  zeigeSchritte('pub', 'Dauert länger als üblich – Seite später neu laden.', true);
+}
+
+// Laufende/fehlgeschlagene Erzeugungen der letzten 24 h (nur Planung)
+let runTimer;
+function startRunTimer(){ clearInterval(runTimer); runTimer = setInterval(() => { if (!document.hidden) ladeRuns(); }, 30000); }
+async function ladeRuns(){
+  if (S.rolle !== 'planung' || !S.token) return;
+  try {
+    const r = await gh('GET', '/repos/' + S.repo + '/actions/runs?per_page=20&event=push');
+    const grenze = Date.now() - 24 * 3600000; const neu = [];
+    for (const w of r.workflow_runs || []) {
+      if (!String(w.head_branch).startsWith('upload/') || new Date(w.created_at) < grenze) continue;
+      const nr = w.head_branch.slice(7).replace(/-\d{8}-\d{6}$/, '');
+      if (neu.some(x => x.nr === nr)) continue;           // nur der neueste Lauf je Auftrag
+      neu.push({nr, titel:(w.display_title || '').replace(/^Upload [^:]*:\s*/, ''), status:w.status, conclusion:w.conclusion, start:w.created_at, url:w.html_url});
+    }
+    const vorher = JSON.stringify(S.runs); S.runs = neu;
+    if (JSON.stringify(neu) !== vorher) { if (neu.some(x => x.status === 'completed' && x.conclusion === 'success')) await ladeJobs(); else zeichneListe(); }
+  } catch(e){}
+}
+
+zeichneDateien();
+start();
+})();
+</script>
+</body>
+</html>
