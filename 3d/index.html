@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="theme-color" content="#1C5FD1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="3D-Werkstatt">
 <meta name="robots" content="noindex, nofollow">
 <title>3D-Werkstatt</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -123,6 +131,10 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
 .wahl h2{margin-bottom:4px}.wahl p{margin:0 0 12px;color:var(--muted);font-size:15px}
 .wahl .opt{display:block;width:100%;text-align:left;margin-top:8px}
 .wahl .opt small{display:block;font-weight:400;color:var(--muted);font-size:14px}
+.tipp{display:flex;gap:12px;align-items:center;padding:12px 14px;margin-bottom:14px}
+.tipp img{width:40px;height:40px;border-radius:9px;flex:none}
+.tipp div{flex:1;min-width:0;font-size:15px}.tipp b{display:block;font-size:16px}
+.tipp .x{border:0;background:none;color:var(--muted);font-size:24px;width:40px;height:40px;cursor:pointer;border-radius:8px;flex:none}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);
   padding:10px 16px;border-radius:10px;font-size:15px;z-index:20;max-width:calc(100% - 32px)}
 </style>
@@ -183,6 +195,13 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
         <p class="hint">Upload-Schlüssel auf diesem Gerät gespeichert. <button class="linkbtn inl" id="keyDel" type="button">Entfernen</button></p>
       </div>
     </section>
+
+    <div class="card tipp" id="tipp" hidden>
+      <img src="icon-192.png" alt="">
+      <div><b>Als App im Vollbild</b><span id="tippTxt"></span></div>
+      <button class="btn" id="tippBtn" type="button" hidden>Installieren</button>
+      <button class="x" id="tippZu" type="button" aria-label="Hinweis ausblenden">×</button>
+    </div>
 
     <button class="btn primary scanbtn" id="scanBtn" type="button" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 8h3v3H8zM13 13h3v3h-3zM13 8h3M8 16h2"/></svg>
@@ -287,6 +306,7 @@ async function zeigeApp(){
   await ladeJobs();
   if (S.rolle === 'planung' && S.token) { ladeRuns(); startRunTimer(); }
   $('#scanBtn').hidden = !window.Scanner;
+  zeigeTipp();
   const q = new URLSearchParams(location.search);
   if (q.get('scan')) { history.replaceState(null, '', location.pathname); scanErgebnis(q.get('scan')); }
 }
@@ -562,6 +582,21 @@ async function ladeRuns(){
     if (JSON.stringify(neu) !== vorher) { if (neu.some(x => x.status === 'completed' && x.conclusion === 'success')) await ladeJobs(); else zeichneListe(); }
   } catch(e){}
 }
+
+// ---------- Als App installieren (Vollbild) ----------
+// Android/PC-Chrome: Installieren-Knopf (beforeinstallprompt). iPhone: Hinweis «Teilen → Zum Home-Bildschirm».
+const ALS_APP = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installEvt = null;
+function zeigeTipp(){
+  if (ALS_APP || load('tipp-app-weg')) return;
+  if (installEvt) { $('#tippTxt').textContent = 'Ohne Browserleisten, mit eigenem Symbol.'; $('#tippBtn').hidden = false; $('#tipp').hidden = false; }
+  else if (IOS) { $('#tippTxt').textContent = 'Unten auf «Teilen» tippen, dann «Zum Home-Bildschirm».'; $('#tippBtn').hidden = true; $('#tipp').hidden = false; }
+}
+addEventListener('beforeinstallprompt', ev => { ev.preventDefault(); installEvt = ev; if (!$('#app').hidden) zeigeTipp(); });
+$('#tippBtn').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch(e){} installEvt = null; $('#tipp').hidden = true; });
+$('#tippZu').addEventListener('click', () => { store('tipp-app-weg', '1'); $('#tipp').hidden = true; });
+addEventListener('appinstalled', () => { $('#tipp').hidden = true; });
 
 zeichneDateien();
 start();
