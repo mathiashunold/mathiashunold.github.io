@@ -180,9 +180,9 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
       <div class="card" id="upCard" hidden>
         <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="dropHint">
           <strong>Dateien hierher ziehen oder antippen</strong>
-          <span id="dropHint">DWG und PNX aus CAD+T, optional die XLS-Stückliste</span>
+          <span id="dropHint">DWG und STK-Stückliste aus CAD+T</span>
         </div>
-        <input type="file" id="fileIn" multiple accept=".dwg,.pnx,.xls,.DWG,.PNX,.XLS" hidden>
+        <input type="file" id="fileIn" multiple accept=".dwg,.stk,.DWG,.STK" hidden>
         <ul class="files" id="files"></ul>
         <div class="grid">
           <div><label for="fNr">Auftrag</label><input class="field" id="fNr" inputmode="numeric" autocomplete="off"></div>
@@ -268,6 +268,7 @@ async function anmelden(pw, still){
   try {
     const p = JSON.parse(await decrypt(z.planung, pw));
     S.rolle = 'planung'; S.ansichtPw = p.ansicht; S.repo = p.repo; S.token = load(K_KEY);
+    store('planung-repo', p.repo);          // für die Baustellen-Kontrolle in der 3D-Seite (Speichern im privaten Repo)
   } catch(e) {
     try { await decrypt(z.ansicht, pw); S.rolle = 'bank'; S.ansichtPw = pw; }
     catch(e2) { throw new Error(still ? '' : 'Passwort falsch.'); }
@@ -282,7 +283,7 @@ $('#loginForm').addEventListener('submit', async ev => {
   finally { b.disabled = false; b.textContent = 'Anmelden'; }
 });
 $('#logout').addEventListener('click', () => {
-  store(K_APP, null); store(K_VIEW, null); S = {rolle:null, jobs:[], runs:[]}; clearInterval(runTimer);
+  store(K_APP, null); store(K_VIEW, null); store('planung-repo', null); S = {rolle:null, jobs:[], runs:[]}; clearInterval(runTimer);
   $('#app').hidden = true; $('#login').hidden = false; $('#pw').focus();
 });
 
@@ -367,6 +368,7 @@ function zeichneListe(){
       <div class="acts">
         <button class="btn" type="button" data-copy="${esc(link)}">Link kopieren</button>
         ${S.rolle === 'planung' ? `<button class="btn" type="button" data-csv="${esc(j.nr)}">Positionsliste (CSV)</button>` : ''}
+        ${S.rolle === 'planung' && S.token ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#kontrolle">Baustellen-Kontrolle</a>` : ''}
       </div></div>`;
   }
   if (!h) h = `<div class="card empty">${q ? 'Kein Auftrag gefunden.' : (S.rolle === 'planung' ? 'Noch keine Aufträge. Lade oben den ersten Planstand hoch.' : 'Noch keine Aufträge vorhanden.')}</div>`;
@@ -426,23 +428,23 @@ $('#keyDel').addEventListener('click', () => {
 });
 
 // ---------- Dateien wählen ----------
-let F = {dwg:null, pnx:null, xls:null};
-const art = f => { const m = f.name.toLowerCase().match(/\.(dwg|pnx|xls)$/); return m ? m[1] : null; };
+let F = {dwg:null, stk:null};
+const art = f => { const m = f.name.toLowerCase().match(/\.(dwg|stk)$/); return m ? m[1] : null; };
 function nimmDateien(list){
   const unbekannt = [];
   for (const f of list) { const a = art(f); if (a) F[a] = f; else unbekannt.push(f.name); }
   if (unbekannt.length) toast('Nicht verwendet: ' + unbekannt.join(', '));
-  if (F.pnx) liesPnx(F.pnx);
+  if (F.stk && !$('#fTitel').value) { $('#fTitel').value = F.stk.name.replace(/\.stk$/i, '').replace(/^\d+[_ ]*/, '').replace(/_/g, ' ').trim(); pruefeBereit(); }
   zeichneDateien();
 }
 function zeichneDateien(){
   const row = (a, label, opt) => F[a]
     ? `<li><span class="k">${label}</span><span class="n">${esc(F[a].name)}</span><span class="s">${fmtMB(F[a].size)}</span><button class="x" type="button" data-rm="${a}" aria-label="${label} entfernen">×</button></li>`
     : `<li class="miss"><span class="k">${label}</span><span class="n">${opt ? 'optional – für Massivholz, KVL, Granit' : 'fehlt noch'}</span></li>`;
-  $('#files').innerHTML = row('dwg', 'DWG') + row('pnx', 'PNX') + row('xls', 'XLS', true);
+  $('#files').innerHTML = row('dwg', 'DWG') + row('stk', 'STK');
   pruefeBereit();
 }
-function pruefeBereit(){ $('#upBtn').disabled = !(F.dwg && F.pnx && $('#fNr').value.trim() && $('#fTitel').value.trim()) || laeuft; }
+function pruefeBereit(){ $('#upBtn').disabled = !(F.dwg && F.stk && $('#fNr').value.trim() && $('#fTitel').value.trim()) || laeuft; }
 ['#fNr', '#fTitel', '#fKunde'].forEach(s => $(s).addEventListener('input', pruefeBereit));
 $('#files').addEventListener('click', ev => { const b = ev.target.closest('[data-rm]'); if (b) { F[b.dataset.rm] = null; zeichneDateien(); } });
 const drop = $('#drop');
@@ -452,20 +454,6 @@ $('#fileIn').addEventListener('change', ev => { nimmDateien(ev.target.files); ev
 ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, ev => { ev.preventDefault(); drop.classList.add('over'); }));
 ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', ev => nimmDateien(ev.dataTransfer.files));
-
-// PNX (Cut Rite, cp1252): Feld 12 «26399.01», 26 Kunde, 27 Objekt
-async function liesPnx(f){
-  try {
-    const txt = new TextDecoder('windows-1252').decode(await f.slice(0, 200000).arrayBuffer());
-    const z = txt.split(/\r?\n/).find(l => l.split(';').length > 27);
-    if (!z) return;
-    const r = z.split(';');
-    if (!$('#fNr').value) $('#fNr').value = (r[12] || '').split('.')[0].trim();
-    if (!$('#fKunde').value) $('#fKunde').value = (r[26] || '').trim();
-    if (!$('#fTitel').value) $('#fTitel').value = (r[27] || '').trim();
-    pruefeBereit();
-  } catch(e){}
-}
 
 // ---------- Hochladen ----------
 let laeuft = false;
@@ -494,7 +482,7 @@ $('#upBtn').addEventListener('click', async () => {
   const repo = '/repos/' + S.repo;
   try {
     // 1. Dateien in Teilen als Git-Blobs hochladen
-    const dateien = ['dwg', 'pnx', 'xls'].filter(a => F[a]).map(a => ({art:a, f:F[a]}));
+    const dateien = ['dwg', 'stk'].filter(a => F[a]).map(a => ({art:a, f:F[a]}));
     const gesamt = dateien.reduce((s, d) => s + d.f.size, 0); let fertig = 0;
     const tree = [], manifest = [];
     for (const d of dateien) {
@@ -523,7 +511,7 @@ $('#upBtn').addEventListener('click', async () => {
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
     const branch = `upload/${nr}-${stamp}`;
     await gh('POST', repo + '/git/refs', {ref:'refs/heads/' + branch, sha:c.sha});
-    F = {dwg:null, pnx:null, xls:null}; zeichneDateien();
+    F = {dwg:null, stk:null}; zeichneDateien();
     // 3. Auf den Lauf warten
     await verfolge(branch, auftrag);
   } catch(e) {
