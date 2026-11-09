@@ -8,7 +8,7 @@ let V, T, sess = null, hitSrc = null, reticle = null, root = null, overlay = nul
 let placed = false, yaw = 0, scale = 1, bestandAn = false, vorher = null;
 // Ausrichten mit 2 Punkten: modellPkt = zwei im 3D gewählte Punkte (Modell-Koordinaten), raumPkt = dieselben im Raum angetippt
 let modus = 'frei', modellPkt = null, raumPkt = [], marken = [], pruef = '', vorMarken = [];
-let bodenY = 0, schritt = 0.01, versatz = {x:0, y:0, z:0}, fein = false;   // Fertigboden im Modell (m), Feinschieben in Metern
+let raumBoden = Infinity, bodenY = 0, schritt = 0.01, versatz = {x:0, y:0, z:0}, fein = false;   // Fertigboden im Modell (m), Feinschieben in Metern
 // Fertigboden im Modell: Oberkante des grössten flachen Bestand-Bodens, sonst Unterkante des Möbels
 // (die DWG muss den Boden nicht auf Höhe 0 haben – sonst schwebt das Möbel in AR)
 // weicher Schatten unter dem Möbel: ohne Bodenkontakt wirkt ein AR-Objekt, als würde es schweben
@@ -27,14 +27,16 @@ function schattenBauen(){
   return s;
 }
 function bodenErmitteln(){
-  let best = null, flaeche = 0, minM = Infinity;
+  // flache Bestand-Teile: die grossen (≥ 50 % der grössten Fläche) – davon das tiefste. Sonst würde die gleich grosse Decke gewinnen.
+  const flach = []; let minM = Infinity;
   V.P.forEach(p => {
     const b = new T.Box3().setFromObject(V.meshes[p.i]); if (b.isEmpty()) return;
     const g = b.getSize(new T.Vector3());
-    if (p.k === 'bst') { if (g.y < 0.2 && g.x * g.z > flaeche) { flaeche = g.x * g.z; best = b.max.y; } }
+    if (p.k === 'bst') { if (g.y < 0.2) flach.push({f: g.x * g.z, top: b.max.y}); }
     else if (!p.k || p.k === 'nl') minM = Math.min(minM, b.min.y);
   });
-  return best != null ? best : (isFinite(minM) ? minM : 0);
+  if (flach.length) { const fmax = Math.max(...flach.map(x => x.f)); return Math.min(...flach.filter(x => x.f >= fmax * 0.5).map(x => x.top)); }
+  return isFinite(minM) ? minM : 0;
 }
 const ROT = 0xE5484D, ORANGE = 0xF5A524;
 function vorMarkenWeg(){ vorMarken.forEach(k => k.parent && k.parent.remove(k)); vorMarken = []; }
@@ -207,7 +209,7 @@ function zeigeBestand(){
 
 async function beginnen(s){
   schliesseKarte(); scale = s; placed = false; yaw = 0; bestandAn = false; raumPkt = []; marken = []; pruef = ''; versatz = {x:0, y:0, z:0}; fein = false;
-  bodenY = bodenErmitteln();
+  bodenY = bodenErmitteln(); raumBoden = Infinity;
   if (modus === 'punkte' && !modellPkt) modus = 'frei';
   vorMarkenWeg();
   bauOverlay();
@@ -249,8 +251,17 @@ async function beginnen(s){
     if (frame && hitSrc && !placed) {
       const res = frame.getHitTestResults(hitSrc);
       const war = reticle.visible;
-      if (res.length) { const pose = res[0].getPose(r.xr.getReferenceSpace()); reticle.visible = !!pose; if (pose) reticle.matrix.fromArray(pose.transform.matrix); }
-      else reticle.visible = false;
+      // nur waagrechte Flächen (Boden): ARCore meldet auch Wände – dort sass der Ring ~1 m hoch (Schiebetüre)
+      let pose = null;
+      for (const h of res) {
+        const p = h.getPose(r.xr.getReferenceSpace()); if (!p) continue;
+        const m = p.transform.matrix;            // Spalte 1 = Flächennormale (y-Achse der Trefferpose)
+        if (m[5] <= 0.9) continue;
+        raumBoden = Math.min(raumBoden, m[13]);   // tiefste erkannte waagrechte Fläche = Boden
+        if (m[13] > raumBoden + 0.25) continue;   // Tisch, Podest, Sims … überspringen
+        pose = p; break;
+      }
+      reticle.visible = !!pose; if (pose) reticle.matrix.fromArray(pose.transform.matrix);
       if (war !== reticle.visible) info();
     }
     r.render(scene, V.camera);
