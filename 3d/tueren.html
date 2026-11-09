@@ -61,6 +61,14 @@ textarea.field{min-height:72px;resize:vertical}
 .kacheln svg{width:100%;max-width:150px;height:auto}
 .rechnung{background:var(--surface-2);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:15px}
 .rechnung b{font-size:18px}
+.messbild{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);gap:8px;align-items:center;margin-top:10px}
+.messbild .oeff{border:4px solid var(--muted);border-bottom:2px dashed var(--muted);border-radius:6px 6px 0 0;padding:6px 8px 14px;display:grid;gap:14px}
+.messbild label{font-size:13px;margin:4px 0 2px;white-space:nowrap}
+.messbild .mass input{padding-left:6px}
+.fortschritt{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0}
+details{border-top:1px solid var(--line);margin-top:12px}
+summary{min-height:48px;display:flex;align-items:center;font-weight:600;cursor:pointer}
+summary small{font-weight:500;color:var(--muted);margin-left:8px}
 .mass{position:relative}
 .mass input{text-align:right;font-weight:700;font-size:20px;padding-right:40px}
 .mass span{position:absolute;right:12px;bottom:13px;font-size:14px;color:var(--muted)}
@@ -102,7 +110,7 @@ const neueId = () => Date.now().toString(36) + Math.random().toString(36).slice(
 const TOL = 5;   // mm: Unterschied oben/unten bzw. links/rechts ab dem gewarnt wird
 
 const TYPEN = ['Blockrahmen', 'Futter', 'Stahlzarge', 'Rahmentüre', 'Blendrahmen'];
-const insTyp = typ => typ === 'Rahmentüre' || typ === 'Blendrahmen';   // Rahmen vor der Wand, steht ins Licht
+const insTyp = typ => typ === 'Rahmentüre' || typ === 'Blendrahmen';   // Rahmen steht ins Licht (Rahmentüre: in der Leibung, Blendrahmen: vor der Wand)
 const EINSCHLAG = ['stumpf', 'mit Überschlag'];
 const ANSCHLAG = ['DIN links', 'DIN rechts'];
 const ANFORD = ['EI30', 'EI60', 'Rauchschutz', 'Schallschutz', 'Nassraum'];
@@ -119,7 +127,7 @@ const MASSE = [
 const token = () => ls.get('upload-schluessel'), repo = () => ls.get('planung-repo');
 const BETA = ls.get('beta') === '1';
 const Q = new URLSearchParams(location.search);
-let S = {ansicht: 'liste', nr: null, tuerId: null, aktivFeld: null, sync: ''};
+let S = {ansicht: 'liste', nr: null, tuerId: null, aktivFeld: null, sync: '', offen: {}, fokus: null};
 let index = ladeLokal('tueren-index') || {v:1, auftraege: []};
 let daten = null;   // aktueller Auftrag {v, auftrag:{nr,titel,kunde,objekt,adresse}, tueren:[]}
 
@@ -271,8 +279,8 @@ function chip(t){
 function detail(typ, einschlag){
   const ue = einschlag === 'mit Überschlag', holz = 'fill="#C58B3C" stroke="currentColor" stroke-width="1"';
   let rahmen, fy, lx, extra = '';
-  if (typ === 'Rahmentüre') { fy = 3; lx = 61; rahmen = `<path d="M30 3 H60 V11 H66 V15 H30 Z" ${holz}/>`;
-    extra = '<path d="M50 24 H60 M50 20 v8 M60 20 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="64" y="29" font-size="9" fill="currentColor">ins Licht</text>'; }
+  if (typ === 'Rahmentüre') { fy = 15; lx = 63; rahmen = `<path d="M50 15 H62 V23 H68 V50 H50 Z" ${holz}/>`;
+    extra = '<path d="M50 60 H62 M50 56 v8 M62 56 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="66" y="64" font-size="9" fill="currentColor">ins Licht</text>'; }
   else if (typ === 'Blendrahmen') { fy = 5; lx = 56; rahmen = `<path d="M12 5 H55 V13 H60 V15 H12 Z" ${holz}/>`;
     extra = '<path d="M50 24 H55 M50 20 v8 M55 20 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="59" y="29" font-size="9" fill="currentColor">ins Licht</text>'; }
   else if (typ === 'Futter') { fy = 9; lx = 59; rahmen = `<path d="M34 9 H58 V17 H63 V30 H58 V71 H34 V65 H50 V15 H34 Z" ${holz}/>`; }
@@ -306,7 +314,6 @@ function skizze(t){
     <line x1="${x0 + w + 22}" y1="${y0}" x2="${x0 + w + 22}" y2="${y0 + h}" stroke="currentColor"/>
     <text x="${x0 + w + 30}" y="${y0 + h / 2}" font-size="16" font-weight="700" fill="currentColor" transform="rotate(90 ${x0 + w + 30} ${y0 + h / 2})" text-anchor="middle">${mm(r.H)}</text>
     <text x="${x0 - 20}" y="${y0 + h / 2}" font-size="13" fill="currentColor" text-anchor="end">Wand ${mm(r.W)}</text>
-    <text x="${x0 + w / 2}" y="${y0 + h - 8}" font-size="13" fill="currentColor" text-anchor="middle">${esc(t.typ || '')}${t.einschlag ? ', ' + esc(t.einschlag) : ''}</text>
   </svg>`;
 }
 
@@ -375,16 +382,16 @@ function neueTuer(){
     bodenaufbau: vorher ? vorher.bodenaufbau : '', luft: vorher && vorher.luft != null ? vorher.luft : '', luftH: vorher && vorher.luftH != null ? vorher.luftH : '', insLicht: vorher && vorher.insLicht != null ? vorher.insLicht : '',
     masse: {}, anf: [], rc: '', schloss: '', baender: '', druecker: '', schliesser: false, bodendichtung: false,
     notiz: '', fotos: [], erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''};
-  daten.tueren.push(t); S.tuerId = t.id; S.ansicht = 'tuer'; S.aktivFeld = 'b_o'; speichern(); zeichne(); scrollTo(0, 0);
+  daten.tueren.push(t); S.offen = {}; S.tuerId = t.id; S.ansicht = 'tuer'; S.aktivFeld = 'b_o'; speichern(); zeichne(); scrollTo(0, 0);
 }
 const aktuelleTuer = () => daten.tueren.find(t => t.id === S.tuerId);
 function seg(name, opts, wert, multi){
   return `<div class="seg" role="group" data-seg="${name}">${opts.map(o => `<button type="button" data-v="${esc(o)}" aria-pressed="${multi ? (wert || []).includes(o) : wert === o}">${esc(o)}</button>`).join('')}</div>`;
 }
-function massFeld(m, t){
+function massFeld(m, t, titel){
   const v = t.masse[m.k];
-  return `<div class="mass${S.aktivFeld === m.k ? ' aktiv' : ''}"><label for="m_${m.k}">${esc(m.t)}</label>
-    <input class="field" id="m_${m.k}" data-mass="${m.k}" inputmode="decimal" autocomplete="off" value="${v != null && v !== '' ? esc(mm(v)) : ''}" placeholder="–"><span>mm</span></div>`;
+  return `<div class="mass${S.aktivFeld === m.k ? ' aktiv' : ''}"><label for="m_${m.k}">${esc(titel || m.t)}</label>
+    <input class="field" id="m_${m.k}" data-mass="${m.k}" enterkeyhint="next" inputmode="decimal" autocomplete="off" value="${v != null && v !== '' ? esc(mm(v)) : ''}" placeholder="–"><span>mm</span></div>`;
 }
 function zusatz(f, titel, t){
   const v = t[f];
@@ -393,7 +400,8 @@ function zusatz(f, titel, t){
 }
 function zeichneTuer(){
   const t = aktuelleTuer(); if (!t) { S.ansicht = 'auftrag'; return zeichne(); }
-  const r = auswerten(t), M = g => MASSE.filter(m => m.g === g).map(m => massFeld(m, t)).join('');
+  const r = auswerten(t), M = g => MASSE.filter(m => m.g === g).map(m => massFeld(m, t)).join(''), F = k => MASSE.find(m => m.k === k);
+  const voll = f => t[f] != null && t[f] !== '' && t[f] !== false, auf = (k, gef) => (S.offen[k] != null ? S.offen[k] : gef) ? 'open' : '';
   const hBez = t.bezug === 'Meterriss' ? 'ab Meterriss gemessen' : (t.keinBoden ? 'ab Rohboden gemessen' : 'ab Fertigboden gemessen');
   $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zur Türliste">‹</button>
       <h1>Tür ${esc(t.nr || '')}<small>${esc(daten.auftrag.nr)} · ${esc(daten.auftrag.titel || '')}</small></h1></div>
@@ -404,37 +412,42 @@ function zeichneTuer(){
       <label>Einschlag</label>${kacheln('einschlag', EINSCHLAG, t.einschlag, o => detail(t.typ || 'Blockrahmen', o))}
       <label>Anschlag</label>${seg('anschlag', ANSCHLAG, t.anschlag)}
     </div>
-    <div class="card"><h2 style="margin-top:0">Höhenbezug</h2>${seg('bezug', ['Fertigboden', 'Meterriss'], t.bezug)}
+    <div class="card"><h2 style="margin-top:0">Masse</h2>
+      <div class="acts" style="margin-top:0"><button class="btn${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome auf Android')}</button></div>
+      <p class="hint">Feld antippen und Mass eintippen (Enter = nächstes Feld) oder am Bosch messen – der Wert springt ins nächste leere Feld.</p>
+      <div class="fortschritt">${[['Breite', 'b'], ['Höhe', 'h'], ['Wandstärke', 'w']].map(([n, g]) => `<span class="chip ${werte(t, g).length ? 'ok' : 'offen'}">${n} ${werte(t, g).length}/${g === 'h' ? 2 : 3}</span>`).join('')}</div>
+      <div class="messbild" role="group" aria-label="Lichtmasse der Öffnung">
+        <div>${massFeld(F('h_l'), t, 'Höhe links')}</div>
+        <div class="oeff">${massFeld(F('b_o'), t, 'Breite oben')}${massFeld(F('b_m'), t, 'Breite Mitte')}${massFeld(F('b_u'), t, 'Breite unten')}</div>
+        <div>${massFeld(F('h_r'), t, 'Höhe rechts')}</div>
+      </div>
+      <p class="hint">Lichtmass der Öffnung. Ein Mass je Richtung genügt, mit allen wird das kleinste genommen. Höhe: ${hBez}.</p>
+      <label>Höhe gemessen ab</label>${seg('bezug', ['Fertigboden', 'Meterriss'], t.bezug)}
       <div ${t.bezug === 'Meterriss' ? '' : 'hidden'}><label for="tMr">Meterriss über Fertigboden</label><div class="mass"><input class="field" id="tMr" data-f="meterriss" inputmode="decimal" value="${esc(mm(t.meterriss || 1000))}"><span>mm</span></div></div>
       <label class="check"><input type="checkbox" data-f="keinBoden" ${t.keinBoden ? 'checked' : ''}> Noch kein Fertigboden (ab Rohboden gemessen)</label>
       <div ${t.keinBoden ? '' : 'hidden'}><label for="tBa">Bodenaufbau</label><div class="mass"><input class="field" id="tBa" data-f="bodenaufbau" inputmode="decimal" value="${t.bodenaufbau !== '' && t.bodenaufbau != null ? esc(mm(t.bodenaufbau)) : ''}" placeholder="–"><span>mm</span></div></div>
-    </div>
-    <div class="card"><h2 style="margin-top:0">Masse</h2>
-      <div class="acts" style="margin-top:0"><button class="btn${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome auf Android')}</button></div>
-      <p class="hint">Feld antippen, dann am Bosch messen – der Wert springt danach ins nächste leere Feld.</p>
-      <h2>Lichte Breite</h2><div class="grid3">${M('b')}</div>
-      <h2>Lichte Höhe <span style="text-transform:none;letter-spacing:0">(${hBez})</span></h2><div class="grid2">${M('h')}</div>
-      <h2>Wandstärke</h2><div class="grid3">${M('w')}</div>
+      <h2>Wandstärke</h2><div class="grid3">${massFeld(F('w_o'), t, 'oben')}${massFeld(F('w_m'), t, 'Mitte')}${massFeld(F('w_u'), t, 'unten')}</div>
       ${t.typ ? `<h2>Rahmen <span style="text-transform:none;letter-spacing:0">(${esc(t.typ)})</span></h2><div class="grid2">
         ${insTyp(t.typ) ? zusatz('insLicht', 'Rahmen ins Licht pro Seite', t) + '<div></div>' : zusatz('luft', 'Luft seitlich gesamt', t) + zusatz('luftH', 'Luft Höhe gesamt (oben + unten)', t)}${M('rb')}</div>
         <p class="hint">${insTyp(t.typ) ? 'Um dieses Mass steht der Rahmen links, rechts und oben ins Lichtmass.' : 'Um diese Masse ist der Rahmen kleiner als das gemessene Lichtmass (beide Seiten bzw. oben und unten zusammen).'}</p>
         ${r.rechnung ? `<div class="rechnung">${r.rechnung.split(' · ').map(x => { const i = x.lastIndexOf('= '); return esc(x.slice(0, i + 2)) + '<b>' + esc(x.slice(i + 2)) + '</b>'; }).join('<br>')}</div>` : ''}`
         : '<p class="hint">Typ wählen – dann erscheinen die passenden Rahmen-Masse (Luft bzw. Rahmen ins Licht).</p>'}
-      <h2>Optional</h2><div class="grid2">${M('opt')}</div>
       <div class="ergebnis"><div><small>Lichtmass Breite</small><b>${mm(r.B)}</b></div><div><small>Höhe ab Fertigboden</small><b>${mm(r.H)}</b></div><div><small>Wandstärke max.</small><b>${mm(r.W)}</b></div></div>
       ${r.hinweise.map(h => `<div class="warnung">${esc(h)}</div>`).join('')}
       ${r.fehlt.length ? `<p class="hint">Fehlt noch: ${esc(r.fehlt.join(', '))}</p>` : ''}
-      ${skizze(t)}
+      <details data-auf="opt" ${auf('opt', t.masse.d_b || t.masse.d_h)}><summary>Durchgangsmass <small>optional</small></summary><div class="grid2">${M('opt')}</div></details>
+      <details data-auf="skizze" ${auf('skizze', false)}><summary>Skizze</summary>
+      ${skizze(t)}</details>
     </div>
     <div class="card"><h2 style="margin-top:0">Anforderungen</h2>${seg('anf', ANFORD, t.anf, true)}
       <label>Einbruchschutz (RC)</label>${seg('rc', RC, t.rc)}
-      <h2>Beschläge</h2>
+      <details data-auf="besch" ${auf('besch', ['schloss', 'baender', 'druecker', 'schliesser', 'bodendichtung', 'notiz'].some(voll))}><summary>Beschläge und Notiz <small>optional</small></summary>
       <div class="grid2"><div><label for="tSchloss">Schloss</label><input class="field" id="tSchloss" data-f="schloss" value="${esc(t.schloss)}" placeholder="PZ / BB / WC"></div>
       <div><label for="tBaender">Bänder</label><input class="field" id="tBaender" data-f="baender" value="${esc(t.baender)}"></div></div>
       <label for="tDr">Drücker</label><input class="field" id="tDr" data-f="druecker" value="${esc(t.druecker)}">
       <label class="check"><input type="checkbox" data-f="schliesser" ${t.schliesser ? 'checked' : ''}> Türschliesser</label>
       <label class="check"><input type="checkbox" data-f="bodendichtung" ${t.bodendichtung ? 'checked' : ''}> Bodendichtung</label>
-      <label for="tNotiz">Notiz</label><textarea class="field" id="tNotiz" data-f="notiz">${esc(t.notiz)}</textarea>
+      <label for="tNotiz">Notiz</label><textarea class="field" id="tNotiz" data-f="notiz">${esc(t.notiz)}</textarea></details>
       <h2>Fotos</h2><div class="fotos" id="fotos"></div>
       <div class="acts"><label class="btn" style="margin:0">Foto aufnehmen<input type="file" accept="image/*" capture="environment" id="foto" hidden></label></div>
     </div>
@@ -450,8 +463,11 @@ function zeichneTuer(){
     else aendern(t, {[f]: t[f] === v && f !== 'bezug' ? '' : v});
     zeichneMitFokus();
   });
+  $('#app').querySelectorAll('details[data-auf]').forEach(d => d.ontoggle = () => { S.offen[d.dataset.auf] = d.open; });
   $('#app').querySelectorAll('[data-mass]').forEach(i => {
     i.onfocus = () => { S.aktivFeld = i.dataset.mass; $('#app').querySelectorAll('.mass.aktiv').forEach(x => x.classList.remove('aktiv')); i.parentNode.classList.add('aktiv'); };
+    i.onkeydown = ev => { if (ev.key !== 'Enter') return; ev.preventDefault();
+      const n = MASSE[MASSE.findIndex(m => m.k === i.dataset.mass) + 1]; S.fokus = n ? 'm_' + n.k : null; if (!n) i.blur(); i.onchange(); };
     i.onchange = () => { const m = Object.assign({}, t.masse, {[i.dataset.mass]: i.value.trim() === '' ? null : zahl(i.value)}); aendern(t, {masse: m}); zeichneMitFokus(); };
   });
   $('#app').querySelectorAll('[data-f]').forEach(i => {
@@ -470,7 +486,8 @@ async function zeigeFotos(t){
   el.innerHTML = (t.fotos || []).length ? '' : '<p class="hint">Noch keine Fotos.</p>';
   for (const k of t.fotos || []) { const u = await fotoUrl(k); el.insertAdjacentHTML('beforeend', u ? `<img src="${u}" alt="Foto Tür ${esc(t.nr)}">` : '<span class="hint">Foto lädt …</span>'); }
 }
-function zeichneMitFokus(){ const id = document.activeElement && document.activeElement.id, y = scrollY; zeichne(); scrollTo(0, y); if (id && $('#' + id)) $('#' + id).focus({preventScroll: true}); }
+function zeichneMitFokus(){ const id = S.fokus || (document.activeElement && document.activeElement.id), y = scrollY, sprung = !!S.fokus; S.fokus = null; zeichne(); scrollTo(0, y);
+  const el = id && document.getElementById(id); if (el) { const d = el.closest('details'); if (d) d.open = true; el.focus({preventScroll: !sprung}); if (sprung && el.select) el.select(); } }
 function aendern(t, w){ Object.assign(t, w, {zeit: jetzt()}); merkeIndex(); speichern(); }
 
 // Bosch-Messwert → aktives Feld, danach nächstes leeres Pflichtfeld
