@@ -87,7 +87,7 @@ async function hochladen(versuch){
     const f = await fernLaden();
     if (f && f.daten) { st = zusammenfuehren(f.daten, st); ls.set(KEY, JSON.stringify(st)); }
     st.gespeichert = jetzt();
-    await gh('PUT', dateiPfad(), {message:'Baustellen-Kontrolle ' + NR, content:b64enc(JSON.stringify(st, null, 1)), branch:BRANCH, ...(f && f.sha ? {sha:f.sha} : {})});
+    await gh('PUT', dateiPfad(), {message:'Aufmass-Hilfe ' + NR, content:b64enc(JSON.stringify(st, null, 1)), branch:BRANCH, ...(f && f.sha ? {sha:f.sha} : {})});
     ls.set(KEY, JSON.stringify(st));
     syncStatus = 'Gespeichert für die Planung · ' + new Date().toLocaleTimeString('de-CH', {hour:'2-digit', minute:'2-digit'});
   } catch(e) {
@@ -188,7 +188,7 @@ const css = `
 function setupDom(){
   if (document.getElementById('kpanel')) return;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
-  const p = document.createElement('section'); p.id = 'kpanel'; p.setAttribute('aria-label', 'Baustellen-Kontrolle'); p.hidden = true; document.body.appendChild(p);
+  const p = document.createElement('section'); p.id = 'kpanel'; p.setAttribute('aria-label', 'Aufmass-Hilfe'); p.hidden = true; document.body.appendChild(p);
   p.addEventListener('click', klick); p.addEventListener('input', eingabe); p.addEventListener('change', eingabe);
 }
 function glmKnopf(){
@@ -210,7 +210,7 @@ function zeichne(){
     let liste = sichtbar();
     if (!ui.geloeschte && ui.filter === 'offen') liste = liste.filter(m => delta(m) == null);
     if (!ui.geloeschte && ui.filter === 'abw') liste = liste.filter(m => ['orange', 'rot'].includes(stufe(delta(m))));
-    p.innerHTML = `<div class="kr"><h2>Baustellen-Kontrolle</h2><button class="kx" data-a="zu" aria-label="Kontrolle schliessen">×</button></div>
+    p.innerHTML = `<div class="kr"><h2>Aufmass-Hilfe</h2><button class="kx" data-a="zu" aria-label="Kontrolle schliessen">×</button></div>
       <div class="ks">${g} von ${n} gemessen · grün ≤ ${TOL_GRUEN} mm, orange ≤ ${TOL_ORANGE} mm</div>
       <div class="kr" style="margin-top:8px">${glmKnopf()}${glm.wert ? `<span class="ks">Letzter Wert ${mm(glm.wert.mm)} mm</span>` : ''}</div>
       ${ui.geloeschte ? `<div class="kr" style="margin-top:10px"><b style="flex:1">Gelöschte Masse (${nGel})</b><button data-a="gel">Zurück</button></div>`
@@ -300,7 +300,7 @@ function eigenesMass(){
 function berichtText(){
   const L = alle().filter(m => !m.geloescht);
   const z = L.map(m => { const d = delta(m); return `${m.n}: Soll ${mm(m.soll)}, Ist ${d == null ? 'offen' : mm(+m.ist) + ' (' + mmz(d) + ' mm, ' + {gruen:'grün', orange:'orange', rot:'rot'}[stufe(d)] + ')'}${m.notiz ? ' – ' + m.notiz : ''}`; });
-  return `Baustellen-Kontrolle Auftrag ${NR}, ${new Date().toLocaleDateString('de-CH')}\n\n` + z.join('\n');
+  return `Aufmass-Hilfe Auftrag ${NR}, ${new Date().toLocaleDateString('de-CH')}\n\n` + z.join('\n');
 }
 function teilen(){
   const t = berichtText();
@@ -314,7 +314,7 @@ function drucken(){
   const w = window.open('', '_blank'); if (!w) return;
   w.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Kontrolle ${esc(NR)}</title>
     <style>body{font:14px system-ui,sans-serif;margin:24px;color:#1B2329}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ccc;padding:6px;text-align:left}th{font-size:12px}</style>
-    <h1>Baustellen-Kontrolle – Auftrag ${esc(NR)}</h1><p>${new Date().toLocaleString('de-CH')} · Toleranz grün ≤ ${TOL_GRUEN} mm, orange ≤ ${TOL_ORANGE} mm, rot darüber</p>
+    <h1>Aufmass-Hilfe – Auftrag ${esc(NR)}</h1><p>${new Date().toLocaleString('de-CH')} · Toleranz grün ≤ ${TOL_GRUEN} mm, orange ≤ ${TOL_ORANGE} mm, rot darüber</p>
     <table><tr><th>Mass</th><th>Soll mm</th><th>Ist mm</th><th>Abweichung</th><th>Notiz</th></tr>${rows}</table>
     <script>setTimeout(()=>print(),300)<\/script></html>`);
   w.document.close();

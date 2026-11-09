@@ -269,10 +269,19 @@ async function anmelden(pw, still){
     const p = JSON.parse(await decrypt(z.planung, pw));
     S.rolle = 'planung'; S.ansichtPw = p.ansicht; S.repo = p.repo; S.token = load(K_KEY);
     store('planung-repo', p.repo);          // für die Baustellen-Kontrolle in der 3D-Seite (Speichern im privaten Repo)
+    S.beta = false;
   } catch(e) {
-    try { await decrypt(z.ansicht, pw); S.rolle = 'bank'; S.ansichtPw = pw; }
-    catch(e2) { throw new Error(still ? '' : 'Passwort falsch.'); }
+    try {                                    // Beta = alles wie Planung + Aufmass-Hilfe + AR (Funktionen im Test)
+      if (!z.beta) throw new Error('kein Beta');
+      const p = JSON.parse(await decrypt(z.beta, pw));
+      S.rolle = 'planung'; S.beta = true; S.ansichtPw = p.ansicht; S.repo = p.repo; S.token = load(K_KEY);
+      store('planung-repo', p.repo);
+    } catch(e1) {
+      try { await decrypt(z.ansicht, pw); S.rolle = 'bank'; S.beta = false; S.ansichtPw = pw; }
+      catch(e2) { throw new Error(still ? '' : 'Passwort falsch.'); }
+    }
   }
+  store('beta', S.beta ? '1' : null);       // 3D-Seiten zeigen Aufmass-Hilfe und AR nur mit Beta
   store(K_APP, pw); store(K_VIEW, S.ansichtPw);
 }
 $('#loginForm').addEventListener('submit', async ev => {
@@ -283,7 +292,7 @@ $('#loginForm').addEventListener('submit', async ev => {
   finally { b.disabled = false; b.textContent = 'Anmelden'; }
 });
 $('#logout').addEventListener('click', () => {
-  store(K_APP, null); store(K_VIEW, null); store('planung-repo', null); S = {rolle:null, jobs:[], runs:[]}; clearInterval(runTimer);
+  store(K_APP, null); store(K_VIEW, null); store('planung-repo', null); store('beta', null); S = {rolle:null, jobs:[], runs:[]}; clearInterval(runTimer);
   $('#app').hidden = true; $('#login').hidden = false; $('#pw').focus();
 });
 
@@ -368,7 +377,8 @@ function zeichneListe(){
       <div class="acts">
         <button class="btn" type="button" data-copy="${esc(link)}">Link kopieren</button>
         ${S.rolle === 'planung' ? `<button class="btn" type="button" data-csv="${esc(j.nr)}">Positionsliste (CSV)</button>` : ''}
-        ${S.rolle === 'planung' && S.token ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#kontrolle">Baustellen-Kontrolle</a>` : ''}
+        ${S.beta && S.token ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#kontrolle">Aufmass-Hilfe (Beta)</a>` : ''}
+        ${S.beta ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#ar">AR (Beta)</a>` : ''}
       </div></div>`;
   }
   if (!h) h = `<div class="card empty">${q ? 'Kein Auftrag gefunden.' : (S.rolle === 'planung' ? 'Noch keine Aufträge. Lade oben den ersten Planstand hoch.' : 'Noch keine Aufträge vorhanden.')}</div>`;
