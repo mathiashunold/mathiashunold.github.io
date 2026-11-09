@@ -50,7 +50,8 @@ const css = `
 #arkarte button,#arov button{min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
   font:600 16px var(--font);padding:0 14px;cursor:pointer}
 #arkarte .kp,#arov .kp{background:var(--accent);border-color:var(--accent);color:#fff}
-#arov{position:fixed;inset:0;font-family:var(--font,system-ui);pointer-events:none}
+#arov{position:fixed;inset:0;z-index:2147483647;font-family:var(--font,system-ui);pointer-events:none}
+#arov [hidden]{display:none !important}
 #arov .oben{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;pointer-events:auto}
 #arov .info{flex:1;background:rgba(0,0,0,.6);color:#fff;border-radius:12px;padding:10px 12px;font-size:15px}
 #arov .unten{position:absolute;bottom:16px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;pointer-events:auto}
@@ -213,17 +214,22 @@ async function beginnen(s){
   if (modus === 'punkte' && !modellPkt) modus = 'frei';
   vorMarkenWeg();
   bauOverlay();
+  // alles andere der 3D-Seite (Liste, Knopfleiste, Etikett) während AR ausblenden – es lag über den AR-Knöpfen
+  vorher = {versteckt: Array.from(document.body.children).filter(e => e !== overlay && e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE' && !e.contains(V.renderer.domElement))
+    .map(e => [e, e.style.visibility])};
+  vorher.versteckt.forEach(([e]) => { e.style.visibility = 'hidden'; });
   try {
     sess = await navigator.xr.requestSession('immersive-ar', {requiredFeatures:['hit-test'], optionalFeatures:['dom-overlay'], domOverlay:{root:overlay}});
   } catch(e) {
-    overlay.remove(); overlay = null; alert('AR konnte nicht gestartet werden: ' + (e && e.message || e)); return;
+    overlay.remove(); overlay = null; vorher.versteckt.forEach(([el, v]) => { el.style.visibility = v; });
+    alert('AR konnte nicht gestartet werden: ' + (e && e.message || e)); return;
   }
   const scene = V.scene, r = V.renderer;
   V.setPause(true);
   // alles Modell (ausser Licht) in eine Gruppe, die im Raum platziert wird
   root = new T.Group(); root.visible = false;
   const kinder = scene.children.filter(o => !o.isLight);
-  vorher = {kinder, gridSichtbar: V.grid ? V.grid.visible : null, bst: V.P.filter(p => p.k === 'bst').map(p => [p.i, V.meshes[p.i].visible])};
+  vorher = {versteckt: vorher.versteckt, kinder, gridSichtbar: V.grid ? V.grid.visible : null, bst: V.P.filter(p => p.k === 'bst').map(p => [p.i, V.meshes[p.i].visible])};
   kinder.forEach(o => root.add(o));
   const schatten = schattenBauen(); if (schatten) { root.add(schatten); vorher.schatten = schatten; }
   root.scale.setScalar(scale); scene.add(root);
@@ -241,7 +247,14 @@ async function beginnen(s){
     const p = new T.Vector3().setFromMatrixPosition(reticle.matrix);
     if (modus === 'punkte') {
       raumPkt.push(p); const k = kugel(raumPkt.length === 1 ? ROT : ORANGE); k.position.copy(p); scene.add(k); marken.push(k);
-      if (raumPkt.length === 2) ausrichten();
+      if (raumPkt.length === 2) {
+        if (Math.hypot(raumPkt[1].x - raumPkt[0].x, raumPkt[1].z - raumPkt[0].z) < 0.2) {   // zu nah beieinander → Richtung unbestimmt
+          const k = marken.pop(); if (k && k.parent) k.parent.remove(k); raumPkt.pop();
+          const el = document.getElementById('arinfo'); if (el) el.textContent = 'Punkt 2 liegt zu nah an Punkt 1 – bitte Punkt 2 nochmals antippen';
+          return;
+        }
+        ausrichten();
+      }
       return info();
     }
     root.position.set(p.x, p.y - bodenY * scale, p.z); root.rotation.y = yaw; root.visible = true; placed = true; reticle.visible = false; info();
@@ -278,6 +291,7 @@ function ende(){
   if (V.grid && vorher.gridSichtbar != null) V.grid.visible = vorher.gridSichtbar;
   vorher.bst.forEach(([i, sicht]) => { V.meshes[i].visible = sicht; if (V.edges) V.edges[i].visible = sicht; });
   if (overlay) { overlay.remove(); overlay = null; }
+  (vorher.versteckt || []).forEach(([el, v]) => { el.style.visibility = v; });
   sess = null; V.setPause(false);
   addEventListener('resize', ()=>{}, {once:true}); dispatchEvent(new Event('resize'));
 }
