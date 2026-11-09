@@ -182,7 +182,7 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
           <strong>Dateien hierher ziehen oder antippen</strong>
           <span id="dropHint">DWG und STK-Stückliste aus CAD+T</span>
         </div>
-        <input type="file" id="fileIn" multiple accept=".dwg,.stk,.DWG,.STK" hidden>
+        <input type="file" id="fileIn" multiple hidden>
         <ul class="files" id="files"></ul>
         <div class="grid">
           <div><label for="fNr">Auftrag</label><input class="field" id="fNr" inputmode="numeric" autocomplete="off"></div>
@@ -429,12 +429,22 @@ $('#keyDel').addEventListener('click', () => {
 
 // ---------- Dateien wählen ----------
 let F = {dwg:null, stk:null};
-const art = f => { const m = f.name.toLowerCase().match(/\.(dwg|stk)$/); return m ? m[1] : null; };
-function nimmDateien(list){
+// Erkennung am Inhalt, nicht an der Endung (CAD+T-Export heisst je nach Einstellung .stk oder .txt;
+// Android graut unbekannte Endungen im Auswahlfenster aus → deshalb auch kein accept-Filter)
+async function art(f){
+  try {
+    const kopf = new Uint8Array(await f.slice(0, 400).arrayBuffer());
+    const txt = new TextDecoder('windows-1252').decode(kopf);
+    if (/^AC10\d\d/.test(txt)) return 'dwg';                                  // AutoCAD-Zeichnung
+    if (/^\s*\{1[\d.]*\}\{[^}]+\}/.test(txt) && /i:class|posnr|key/.test(txt)) return 'stk';   // CAD+T-Stückliste
+  } catch(e){}
+  const m = f.name.toLowerCase().match(/\.(dwg|stk)$/); return m ? m[1] : null;
+}
+async function nimmDateien(list){
   const unbekannt = [];
-  for (const f of list) { const a = art(f); if (a) F[a] = f; else unbekannt.push(f.name); }
-  if (unbekannt.length) toast('Nicht verwendet: ' + unbekannt.join(', '));
-  if (F.stk && !$('#fTitel').value) { $('#fTitel').value = F.stk.name.replace(/\.stk$/i, '').replace(/^\d+[_ ]*/, '').replace(/_/g, ' ').trim(); pruefeBereit(); }
+  for (const f of Array.from(list)) { const a = await art(f); if (a) F[a] = f; else unbekannt.push(f.name); }
+  if (unbekannt.length) toast('Nicht erkannt (keine DWG oder STK-Stückliste): ' + unbekannt.join(', '));
+  if (F.stk && !$('#fTitel').value) { $('#fTitel').value = F.stk.name.replace(/\.(stk|txt)$/i, '').replace(/^\d+[_ ]*/, '').replace(/_/g, ' ').trim(); pruefeBereit(); }
   zeichneDateien();
 }
 function zeichneDateien(){
