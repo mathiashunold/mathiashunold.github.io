@@ -52,9 +52,9 @@ textarea.field{min-height:72px;resize:vertical}
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .seg button{flex:1 1 auto;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);font-weight:600;padding:0 10px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.kacheln{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.kacheln{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .kacheln.zwei{grid-template-columns:repeat(2,minmax(0,1fr))}
-@media (max-width:420px){.kacheln{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.kacheln{grid-template-columns:repeat(3,minmax(0,1fr))}.kacheln button{font-size:14px}}
 .kacheln button{display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);
   padding:6px 4px 8px;font-weight:600;font-size:15px;cursor:pointer;min-height:44px}
 .kacheln button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);background:var(--surface)}
@@ -101,11 +101,12 @@ const zahl = s => { const v = parseFloat(String(s).replace(/[\s’']/g, '').repl
 const neueId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const TOL = 5;   // mm: Unterschied oben/unten bzw. links/rechts ab dem gewarnt wird
 
-const TYPEN = ['Blockrahmen', 'Futter', 'Stahlzarge', 'Rahmentüre'];
+const TYPEN = ['Blockrahmen', 'Futter', 'Stahlzarge', 'Rahmentüre', 'Blendrahmen'];
+const insTyp = typ => typ === 'Rahmentüre' || typ === 'Blendrahmen';   // Rahmen vor der Wand, steht ins Licht
 const EINSCHLAG = ['stumpf', 'mit Überschlag'];
 const ANSCHLAG = ['DIN links', 'DIN rechts'];
 const ANFORD = ['EI30', 'EI60', 'Rauchschutz', 'Schallschutz', 'Nassraum'];
-const RC = ['RC1', 'RC2', 'RC3', 'RC4'];   // Einbruchschutz-Klasse (eine wählbar)
+const RC = ['RC2', 'RC3'];   // Einbruchschutz-Klasse (eine wählbar)
 // Messfelder in der Reihenfolge, in der der Bosch-Wert weiterspringt
 const MASSE = [
   {k:'b_o', t:'Breite oben', g:'b'}, {k:'b_m', t:'Breite Mitte', g:'b'}, {k:'b_u', t:'Breite unten', g:'b'},
@@ -238,15 +239,22 @@ function auswerten(t){
   // Übrige Typen stehen mit Luft in der Öffnung → Rahmen aussen = Licht − Luft (gesamt), Rahmenlicht = − Rahmendicken.
   const M = t.masse, gesetzt = v => v != null && v !== '' && !isNaN(v);
   const rl = gesetzt(M.rb_l) ? +M.rb_l : (gesetzt(M.rb) ? +M.rb : null), rr = gesetzt(M.rb_r) ? +M.rb_r : (gesetzt(M.rb) ? +M.rb : null);
-  r.rbl = rl; r.rbr = rr; r.RA = r.RL = null; r.rechnung = '';
-  if (r.B != null && t.typ === 'Rahmentüre' && gesetzt(t.insLicht)) {
+  r.rbl = rl; r.rbr = rr; r.RA = r.RL = r.RAH = r.RLH = null; r.rechnung = '';
+  if (r.B != null && insTyp(t.typ) && gesetzt(t.insLicht)) {
     r.RL = r.B - 2 * t.insLicht; r.rechnung = `Rahmenlicht = ${mm(r.B)} − 2 × ${mm(t.insLicht)} = ${mm(r.RL)}`;
     if (rl != null && rr != null) { r.RA = r.RL + rl + rr; r.rechnung += ` · Rahmen aussen = ${mm(r.RL)} + ${mm(rl)} + ${mm(rr)} = ${mm(r.RA)}`; }
     if (r.RL <= 0) r.hinweise.push('Rahmen ins Licht: Mass prüfen');
-  } else if (r.B != null && t.typ && t.typ !== 'Rahmentüre' && gesetzt(t.luft)) {
+  } else if (r.B != null && t.typ && !insTyp(t.typ) && gesetzt(t.luft)) {
     r.RA = r.B - t.luft; r.rechnung = `Rahmen aussen = ${mm(r.B)} − ${mm(t.luft)} = ${mm(r.RA)} (je Seite ${mm(t.luft / 2)} Luft)`;
     if (rl != null && rr != null) { r.RL = r.RA - rl - rr; r.rechnung += ` · Rahmenlicht = ${mm(r.RA)} − ${mm(rl)} − ${mm(rr)} = ${mm(r.RL)}`; }
     if (t.luft < 0 || t.luft > 60) r.hinweise.push('Luft seitlich: Mass prüfen');
+  }
+  // Höhe: Luft oben + unten (gesamt) bzw. Rahmen ins Licht nur oben
+  const tr = x => r.rechnung += (r.rechnung ? ' · ' : '') + x;
+  if (r.H != null && insTyp(t.typ) && gesetzt(t.insLicht)) { r.RLH = r.H - t.insLicht; tr(`Rahmenlicht Höhe = ${mm(r.H)} − ${mm(t.insLicht)} = ${mm(r.RLH)}`); }
+  else if (r.H != null && t.typ && !insTyp(t.typ) && gesetzt(t.luftH)) {
+    r.RAH = r.H - t.luftH; tr(`Rahmen aussen Höhe = ${mm(r.H)} − ${mm(t.luftH)} = ${mm(r.RAH)} (oben und unten je ${mm(t.luftH / 2)} Luft)`);
+    if (t.luftH < 0 || t.luftH > 60) r.hinweise.push('Luft Höhe: Mass prüfen');
   }
   if (t.keinBoden && !t.bodenaufbau) r.hinweise.push('Kein Fertigboden: Bodenaufbau fehlt');
   if (!t.typ) r.fehlt.push('Typ'); if (!t.anschlag) r.fehlt.push('Anschlag');
@@ -265,6 +273,8 @@ function detail(typ, einschlag){
   let rahmen, fy, lx, extra = '';
   if (typ === 'Rahmentüre') { fy = 3; lx = 61; rahmen = `<path d="M30 3 H60 V11 H66 V15 H30 Z" ${holz}/>`;
     extra = '<path d="M50 24 H60 M50 20 v8 M60 20 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="64" y="29" font-size="9" fill="currentColor">ins Licht</text>'; }
+  else if (typ === 'Blendrahmen') { fy = 5; lx = 56; rahmen = `<path d="M12 5 H55 V13 H60 V15 H12 Z" ${holz}/>`;
+    extra = '<path d="M50 24 H55 M50 20 v8 M55 20 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="59" y="29" font-size="9" fill="currentColor">ins Licht</text>'; }
   else if (typ === 'Futter') { fy = 9; lx = 59; rahmen = `<path d="M34 9 H58 V17 H63 V30 H58 V71 H34 V65 H50 V15 H34 Z" ${holz}/>`; }
   else if (typ === 'Stahlzarge') { fy = 11; lx = 59; rahmen = '<polyline points="38,15 38,11 58,11 58,19 63,19 63,69 38,69 38,65" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>'; }
   else { fy = 15; lx = 67; rahmen = `<path d="M52 15 H66 V23 H72 V50 H52 Z" ${holz}/>`;
@@ -362,7 +372,7 @@ function neueTuer(){
   const nrNeu = vorher && /\d+$/.test(vorher.nr || '') ? vorher.nr.replace(/\d+$/, d => String(+d + 1).padStart(d.length, '0')) : '';
   const t = {id: neueId(), nr: nrNeu, raum: '', typ: vorher ? vorher.typ : '', einschlag: vorher ? vorher.einschlag : '', anschlag: '',
     bezug: vorher ? vorher.bezug : 'Fertigboden', meterriss: vorher ? vorher.meterriss : 1000, keinBoden: vorher ? vorher.keinBoden : false,
-    bodenaufbau: vorher ? vorher.bodenaufbau : '', luft: vorher && vorher.luft != null ? vorher.luft : '', insLicht: vorher && vorher.insLicht != null ? vorher.insLicht : '',
+    bodenaufbau: vorher ? vorher.bodenaufbau : '', luft: vorher && vorher.luft != null ? vorher.luft : '', luftH: vorher && vorher.luftH != null ? vorher.luftH : '', insLicht: vorher && vorher.insLicht != null ? vorher.insLicht : '',
     masse: {}, anf: [], rc: '', schloss: '', baender: '', druecker: '', schliesser: false, bodendichtung: false,
     notiz: '', fotos: [], erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''};
   daten.tueren.push(t); S.tuerId = t.id; S.ansicht = 'tuer'; S.aktivFeld = 'b_o'; speichern(); zeichne(); scrollTo(0, 0);
@@ -406,8 +416,8 @@ function zeichneTuer(){
       <h2>Lichte Höhe <span style="text-transform:none;letter-spacing:0">(${hBez})</span></h2><div class="grid2">${M('h')}</div>
       <h2>Wandstärke</h2><div class="grid3">${M('w')}</div>
       ${t.typ ? `<h2>Rahmen <span style="text-transform:none;letter-spacing:0">(${esc(t.typ)})</span></h2><div class="grid2">
-        ${t.typ === 'Rahmentüre' ? zusatz('insLicht', 'Rahmen ins Licht pro Seite', t) : zusatz('luft', 'Luft seitlich gesamt', t)}<div></div>${M('rb')}</div>
-        <p class="hint">${t.typ === 'Rahmentüre' ? 'Um dieses Mass steht der Rahmen auf jeder Seite ins Lichtmass.' : 'Um dieses Mass ist der Rahmen schmaler als das gemessene Lichtmass (beide Seiten zusammen).'}</p>
+        ${insTyp(t.typ) ? zusatz('insLicht', 'Rahmen ins Licht pro Seite', t) + '<div></div>' : zusatz('luft', 'Luft seitlich gesamt', t) + zusatz('luftH', 'Luft Höhe gesamt (oben + unten)', t)}${M('rb')}</div>
+        <p class="hint">${insTyp(t.typ) ? 'Um dieses Mass steht der Rahmen links, rechts und oben ins Lichtmass.' : 'Um diese Masse ist der Rahmen kleiner als das gemessene Lichtmass (beide Seiten bzw. oben und unten zusammen).'}</p>
         ${r.rechnung ? `<div class="rechnung">${r.rechnung.split(' · ').map(x => { const i = x.lastIndexOf('= '); return esc(x.slice(0, i + 2)) + '<b>' + esc(x.slice(i + 2)) + '</b>'; }).join('<br>')}</div>` : ''}`
         : '<p class="hint">Typ wählen – dann erscheinen die passenden Rahmen-Masse (Luft bzw. Rahmen ins Licht).</p>'}
       <h2>Optional</h2><div class="grid2">${M('opt')}</div>
@@ -447,8 +457,8 @@ function zeichneTuer(){
   $('#app').querySelectorAll('[data-f]').forEach(i => {
     const ev = i.type === 'checkbox' ? 'change' : 'change';
     i.addEventListener(ev, () => { const f = i.dataset.f;
-      const v = i.type === 'checkbox' ? i.checked : (['meterriss', 'bodenaufbau', 'luft', 'insLicht'].includes(f) ? (i.value.trim() === '' ? '' : zahl(i.value)) : i.value);
-      aendern(t, {[f]: v}); if (['keinBoden', 'meterriss', 'bodenaufbau', 'nr', 'luft', 'insLicht'].includes(f)) zeichneMitFokus(); });
+      const v = i.type === 'checkbox' ? i.checked : (['meterriss', 'bodenaufbau', 'luft', 'luftH', 'insLicht'].includes(f) ? (i.value.trim() === '' ? '' : zahl(i.value)) : i.value);
+      aendern(t, {[f]: v}); if (['keinBoden', 'meterriss', 'bodenaufbau', 'nr', 'luft', 'luftH', 'insLicht'].includes(f)) zeichneMitFokus(); });
   });
   $('#foto').onchange = async ev => { const f = ev.target.files[0]; if (!f) return;
     const blob = await verkleinern(f), k = `tueren/${daten.auftrag.nr}/${t.id}-${(t.fotos || []).length + 1}-${Date.now().toString(36)}.jpg`;
@@ -476,16 +486,16 @@ GLM.beiWert = v => {
 
 // ---------- Ausgaben für den Türhersteller ----------
 const SPALTEN = ['Tür', 'Raum', 'Typ', 'Einschlag', 'Anschlag', 'Lichtmass Breite', 'Höhe ab FB', 'Wandstärke max', 'Breite o/m/u', 'Höhe l/r gemessen',
-  'Höhenbezug', 'Bodenaufbau', 'Wand o/m/u', 'Durchgang B', 'Durchgang H', 'Luft seitlich gesamt', 'Rahmen ins Licht pro Seite',
-  'Rahmendicke l/r', 'Rahmen aussen B', 'Rahmenlicht B', 'Anforderungen', 'Schloss', 'Bänder', 'Drücker',
+  'Höhenbezug', 'Bodenaufbau', 'Wand o/m/u', 'Durchgang B', 'Durchgang H', 'Luft seitlich gesamt', 'Luft Höhe gesamt', 'Rahmen ins Licht pro Seite',
+  'Rahmendicke l/r', 'Rahmen aussen B', 'Rahmen aussen H', 'Rahmenlicht B', 'Rahmenlicht H', 'Anforderungen', 'Schloss', 'Bänder', 'Drücker',
   'Türschliesser', 'Bodendichtung', 'Hinweise', 'Notiz'];
 const leer = v => v == null || v === '' || isNaN(v) ? '' : mm(v);
 function zeile(t){
   const r = auswerten(t), M = t.masse, j = ks => ks.map(k => mm(M[k])).join(' / ');
   return [t.nr, t.raum, t.typ, t.einschlag, t.anschlag, mm(r.B), mm(r.H), mm(r.W), j(['b_o', 'b_m', 'b_u']), j(['h_l', 'h_r']),
     t.bezug === 'Meterriss' ? `Meterriss (${mm(t.meterriss || 1000)})` : 'Fertigboden', t.keinBoden ? mm(t.bodenaufbau) : '', j(['w_o', 'w_m', 'w_u']),
-    leer(M.d_b), leer(M.d_h), t.typ && t.typ !== 'Rahmentüre' ? leer(t.luft) : '', t.typ === 'Rahmentüre' ? leer(t.insLicht) : '',
-    r.rbl != null || r.rbr != null ? mm(r.rbl) + ' / ' + mm(r.rbr) : '', leer(r.RA), leer(r.RL), (t.anf || []).concat(t.rc ? [t.rc] : []).join(', '), t.schloss, t.baender, t.druecker,
+    leer(M.d_b), leer(M.d_h), t.typ && !insTyp(t.typ) ? leer(t.luft) : '', t.typ && !insTyp(t.typ) ? leer(t.luftH) : '', insTyp(t.typ) ? leer(t.insLicht) : '',
+    r.rbl != null || r.rbr != null ? mm(r.rbl) + ' / ' + mm(r.rbr) : '', leer(r.RA), leer(r.RAH), leer(r.RL), leer(r.RLH), (t.anf || []).concat(t.rc ? [t.rc] : []).join(', '), t.schloss, t.baender, t.druecker,
     t.schliesser ? 'ja' : '', t.bodendichtung ? 'ja' : '', r.hinweise.concat(r.fehlt.length ? ['fehlt: ' + r.fehlt.join(', ')] : []).join('; '), t.notiz];
 }
 const aktiveTueren = () => daten.tueren.filter(t => !t.geloescht);
