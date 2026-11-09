@@ -311,16 +311,20 @@ const WAND = d => `<path d="${d}" fill="currentColor" opacity=".18"/>`, HOLZ = '
 const TXT = (x, y, t, a) => `<text x="${x}" y="${y}" font-size="9" fill="currentColor" opacity=".75" text-anchor="${a || 'start'}">${t}</text>`;
 const OEFFNUNG = 'M8 2 H112 V92 H95 V15 H25 V92 H8 Z';   // Wand um die Öffnung (Ansicht), Boden bei y = 92
 const BODEN = '<path d="M2 92 H118" stroke="currentColor" stroke-width="1.5"/>';
-function bildWand(t){   // Grundriss: Wand links und rechts der Öffnung mit Verlauf, Türblatt auf der Anschlagseite
-  const y1 = 62, y2 = 82, seite = (v, sp) => { const X = x => sp ? 240 - x : x, R = (xa, ya, xb, yb) => `M${X(xa)} ${ya} H${X(xb)} V${yb} H${X(xa)} Z`;
-    return v === 'Wandende' ? R(58, y1, 90, y2) : v === 'Ecke innen' ? R(40, y1, 90, y2) + R(40, y2, 60, 148) : v === 'Ecke aussen' ? R(40, y1, 90, y2) + R(40, 2, 60, y1) : R(0, y1, 90, y2); };
-  let blatt = '';
+function bildWand(t){   // Grundriss von oben: aussen oben, innen unten; Wandverlauf je Seite, Türblatt 90° offen mit Band und Schwenkbogen
+  const y1 = 82, y2 = 102, seite = (v, sp) => { const X = x => sp ? 240 - x : x;
+    return v === 'Wandende' ? `M${X(90)} ${y1} H${X(58)} V${y2} H${X(90)} Z`
+      : v === 'Ecke innen' ? `M${X(90)} ${y1} H${X(40)} V182 H${X(60)} V${y2} H${X(90)} Z`
+      : v === 'Ecke aussen' ? `M${X(90)} ${y2} H${X(40)} V2 H${X(60)} V${y1} H${X(90)} Z`
+      : `M${X(90)} ${y1} H${X(0)} V${y2} H${X(90)} Z`; };
+  let blatt = `<path d="M90 ${(y1 + y2) / 2} H150" stroke="currentColor" stroke-dasharray="3 3" opacity=".5"/>`;
   if (t.seite && t.anschlag) { const innen = t.seite === 'innen', bandL = (t.anschlag === 'DIN links') === innen, bx = bandL ? 90 : 150, zx = bandL ? 150 : 90, by = innen ? y2 : y1, ey = innen ? y2 + 60 : y1 - 60;
-    blatt = `<path d="M${bx} ${by} V${ey}" stroke="currentColor" stroke-width="3"/><path d="M${bx} ${ey} A60 60 0 0 ${bandL === innen ? 0 : 1} ${zx} ${by}" stroke="currentColor" stroke-dasharray="4 3" fill="none" opacity=".6"/>`; }
-  return `<svg class="sbild" viewBox="0 0 240 150" aria-hidden="true">${WAND(seite(t.wand_l) + seite(t.wand_r, true))}
+    blatt = `<path d="M${bx} ${ey} A60 60 0 0 ${bandL === innen ? 0 : 1} ${zx} ${by}" stroke="currentColor" stroke-dasharray="4 3" fill="none" opacity=".6"/>
+      <path d="M${bx} ${by} V${ey}" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="${bx}" cy="${by}" r="4.5" fill="currentColor"/>`; }
+  return `<svg class="sbild" viewBox="0 0 240 184" aria-hidden="true">${WAND(seite(t.wand_l) + seite(t.wand_r, true))}
     <path d="${seite(t.wand_l)}${seite(t.wand_r, true)}" stroke="currentColor" stroke-width=".8" fill="none"/>${blatt}
-    ${TXT(120, 12, 'aussen', 'middle')}${TXT(120, 144, 'innen', 'middle')}
-    ${PF(82, y1, 82, y2)}${MK(70, 72, 'a')}${PF(158, y1, 158, y2)}${MK(170, 72, 'b')}</svg>`;
+    ${TXT(120, 12, 'aussen', 'middle')}${TXT(120, 180, 'innen', 'middle')}${TXT(2, 180, 'links')}${TXT(238, 180, 'rechts', 'end')}
+    ${PF(82, y1, 82, y2)}${MK(70, 92, 'a')}${PF(158, y1, 158, y2)}${MK(170, 92, 'b')}</svg>`;
 }
 function bildBezug(t){   // Ansicht der Öffnung: wovon aus die Höhe gemessen wird
   const mr = t.bezug === 'Meterriss', roh = !!t.keinBoden, unten = mr ? 54 : (roh ? 98 : 92);
@@ -472,8 +476,6 @@ function zeichneTuer(){
       <div><label for="tRaum">Raum / Geschoss</label><input class="field" id="tRaum" data-f="raum" value="${esc(t.raum)}" placeholder="Büro 2.12"></div></div>
       <label>Typ (Detail antippen)</label>${kacheln('typ', TYPEN, t.typ, o => detail(o, t.einschlag))}
       <label>Einschlag</label>${kacheln('einschlag', EINSCHLAG, t.einschlag, o => detail(t.typ || 'Blockrahmen', o))}
-      <label>Anschlag</label>${seg('anschlag', ANSCHLAG, t.anschlag)}
-      <label>Anschlag (Türblatt) auf der Seite</label>${seg('seite', SEITE, t.seite)}
     </div>
     <div class="card"><h2 style="margin-top:0">Masse</h2>
       <div class="acts" style="margin-top:0"><button class="btn${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome auf Android')}</button></div>
@@ -490,10 +492,12 @@ function zeichneTuer(){
         <div ${t.bezug === 'Meterriss' ? '' : 'hidden'}>${zusatz('meterriss', 'Meterriss über Fertigboden', Object.assign({}, t, {meterriss: t.meterriss || 1000}), 'a')}</div>
         <label class="check"><input type="checkbox" data-f="keinBoden" ${t.keinBoden ? 'checked' : ''}> Noch kein Fertigboden</label>
         <div ${t.keinBoden ? '' : 'hidden'}>${zusatz('bodenaufbau', 'Bodenaufbau (leer = Boden innen)', t, 'b')}</div></div></div>
-      <h2>Wandstärke</h2>${bildWand(t)}
+      <h2>Wand und Anschlag</h2>${bildWand(t)}
+      <label>Anschlag (Punkt = Band)</label>${seg('anschlag', ANSCHLAG, t.anschlag)}
+      <label>Türe geht auf nach</label>${seg('seite', SEITE, t.seite)}
       <div class="grid2"><div>${massFeld(F('w_l'), t, 'Wand links', 'a')}<label>Wand links läuft</label>${seg('wand_l', VERLAUF, t.wand_l)}</div>
         <div>${massFeld(F('w_r'), t, 'Wand rechts', 'b')}<label>Wand rechts läuft</label>${seg('wand_r', VERLAUF, t.wand_r)}</div></div>
-      <p class="hint">Grundriss von oben, links/rechts von innen gesehen. Ecke innen/aussen = Wand knickt auf dieser Seite ab.</p>
+      <p class="hint">Grundriss von oben: aussen oben, innen unten, links/rechts von innen gesehen. DIN links = Bänder links, von der Seite gesehen, auf die die Türe aufgeht. Ecke innen/aussen = Wand knickt nach dieser Seite ab.</p>
       ${t.typ ? `<h2>Rahmen <span style="text-transform:none;letter-spacing:0">(${esc(t.typ)})</span></h2><div class="mbild">${bildRahmen(t)}<div>
         ${insTyp(t.typ) ? zusatz('insLicht', 'ins Licht pro Seite', t, 'a') + massFeld(F('rb_l'), t, 'Rahmendicke links', 'b') + massFeld(F('rb_r'), t, 'Rahmendicke rechts', 'c') + massFeld(F('rb_o'), t, 'Rahmendicke oben', 'd')
           : zusatz('luft', 'Luft seitlich gesamt', t, 'a') + zusatz('luftH', 'Luft Höhe gesamt', t, 'b') + massFeld(F('rb_l'), t, 'Rahmendicke links', 'c') + massFeld(F('rb_r'), t, 'Rahmendicke rechts', 'd') + massFeld(F('rb_o'), t, 'Rahmendicke oben', 'e')}</div></div>
@@ -604,7 +608,7 @@ function csv(){
 function drucken(){
   const a = daten.auftrag, w = window.open('', '_blank'); if (!w) return;
   const karten = aktiveTueren().map(t => { const z = zeile(t), r = auswerten(t);
-    return `<section><div class="sk">${skizze(t)}${t.typ ? detail(t.typ, t.einschlag) : ''}</div><div><h2>Tür ${esc(t.nr)} ${t.raum ? '· ' + esc(t.raum) : ''}</h2>
+    return `<section><div class="sk">${skizze(t)}${bildWand(t)}${t.typ ? detail(t.typ, t.einschlag) : ''}</div><div><h2>Tür ${esc(t.nr)} ${t.raum ? '· ' + esc(t.raum) : ''}</h2>
       <p><b>${esc([t.typ, t.einschlag, t.anschlag, t.seite && 'Anschlag ' + t.seite].filter(Boolean).join(', '))}</b></p>
       <p>Lichtmass <b>${mm(r.B)} × ${mm(r.H)}</b> (Höhe ab Fertigboden) · Wandstärke <b>${mm(r.W)}</b></p>
       <table>${SPALTEN.slice(8).map((s, i) => z[i + 8] ? `<tr><th>${esc(s)}</th><td>${esc(z[i + 8])}</td></tr>` : '').join('')}</table></div></section>`; }).join('');
