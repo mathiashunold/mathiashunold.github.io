@@ -371,14 +371,15 @@ function skizze(t){
   const baender = [0.12, 0.88].map(f => `<rect x="${bandX - 3}" y="${y0 + h * f - 8}" width="6" height="16" fill="currentColor"/>`).join('');
   const bogen = `M ${bandX} ${y0 + h} L ${links ? x0 + w : x0} ${y0 + h * 0.5} L ${bandX} ${y0}`;
   return `<svg class="skizze" viewBox="0 0 ${x0 + w + 70} ${y0 + h + 60}" role="img" aria-label="Skizze Tür ${esc(t.nr)}: Breite ${mm(r.B)}, Höhe ${mm(r.H)}">
-    <rect x="${x0 - 12}" y="${y0 - 12}" width="${w + 24}" height="${h + 12}" fill="none" stroke="currentColor" stroke-width="10" opacity=".18"/>
+    <path d="M${x0 - 6} ${y0 + h} V${y0 - 6} H${x0 + w + 6} V${y0 + h}" fill="none" stroke="currentColor" stroke-width="10" opacity=".18"/>
+    <line x1="${x0 - 24}" y1="${y0 + h}" x2="${x0 + w + 24}" y2="${y0 + h}" stroke="currentColor" stroke-width="1.5"/>
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="none" stroke="currentColor" stroke-width="2"/>
     <path d="${bogen}" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 4" opacity=".6"/>${baender}
     <line x1="${x0}" y1="${y0 + h + 22}" x2="${x0 + w}" y2="${y0 + h + 22}" stroke="currentColor"/>
     <text x="${x0 + w / 2}" y="${y0 + h + 42}" text-anchor="middle" font-size="16" font-weight="700" fill="currentColor">${mm(r.B)}</text>
     <line x1="${x0 + w + 22}" y1="${y0}" x2="${x0 + w + 22}" y2="${y0 + h}" stroke="currentColor"/>
     <text x="${x0 + w + 30}" y="${y0 + h / 2}" font-size="16" font-weight="700" fill="currentColor" transform="rotate(90 ${x0 + w + 30} ${y0 + h / 2})" text-anchor="middle">${mm(r.H)}</text>
-    <text x="${x0 - 20}" y="${y0 + h / 2}" font-size="13" fill="currentColor" text-anchor="end">Wand ${mm(r.W)}</text>
+    <text x="${x0 + w / 2}" y="${y0 + h + 57}" font-size="12" fill="currentColor" text-anchor="middle">Wand ${mm(r.W)}</text>
   </svg>`;
 }
 
@@ -615,7 +616,7 @@ function drucken(){
   w.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Türaufmass ${esc(a.nr)}</title>
     <style>body{font:13px system-ui,sans-serif;margin:18px;color:#1A2024}h1{margin:0 0 4px}section{display:grid;grid-template-columns:200px 1fr;gap:16px;
     border-top:1px solid #bbb;padding:12px 0;page-break-inside:avoid}h2{margin:0 0 4px;font-size:16px}p{margin:2px 0}table{border-collapse:collapse;margin-top:6px}
-    th,td{text-align:left;padding:2px 10px 2px 0;vertical-align:top}th{font-weight:600;color:#555}svg{width:200px;height:auto}</style>
+    th,td{text-align:left;padding:2px 10px 2px 0;vertical-align:top}th{font-weight:600;color:#555}svg{width:200px;height:auto;display:block;margin:0 0 10px}.pf{stroke:#1B5FD0;stroke-width:1.6;fill:none}.mkc{fill:#1B5FD0}.mkt{fill:#fff}</style>
     <h1>Türaufmass ${esc(a.nr)} ${a.titel ? '· ' + esc(a.titel) : ''}</h1><p>${esc([a.kunde, a.objekt].filter(Boolean).join(' · '))} · ${new Date().toLocaleDateString('de-CH')} · ${aktiveTueren().length} Türen · Masse in mm</p>
     ${karten}<script>setTimeout(()=>print(),400)<\/script></html>`);
   w.document.close();
