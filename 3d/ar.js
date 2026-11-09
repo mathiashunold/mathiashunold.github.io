@@ -31,22 +31,30 @@ function schliesseKarte(){ if (karte) { karte.remove(); karte = null; } if (loca
 async function start(v3d){
   V = v3d; T = V.THREE; stil(); schliesseKarte();
   karte = document.createElement('section'); karte.id = 'arkarte'; karte.setAttribute('aria-label', 'AR-Ansicht');
-  const ok = await kannAR();
-  karte.innerHTML = ok
-    ? `<h2>Im Raum anzeigen (Beta)</h2>
-       <p>Handy langsam über den Boden bewegen, bis ein Ring erscheint. Dann antippen: das Möbel steht dort im Massstab 1:1.</p>
-       <p>Mit ↺ ↻ drehen, «Neu platzieren» zum Verschieben. Der Bestand (Wände) ist ausgeblendet – der echte Raum ist ja da.</p>
-       <div class="acts"><button class="kp" data-a="1">AR starten 1:1</button><button data-a="20">Tischmodell 1:20</button><button data-a="zu">Schliessen</button></div>`
-    : `<h2>AR auf diesem Gerät nicht möglich</h2>
-       <p>Die AR-Ansicht braucht <b>Chrome auf Android</b> mit der App «Google Play-Dienste für AR» (ARCore).
-       Auf dem iPhone geht es im Browser noch nicht.</p>
-       <div class="acts"><button data-a="zu">Schliessen</button></div>`;
-  document.body.appendChild(karte);
   karte.addEventListener('click', ev => {
     const a = ev.target.closest('[data-a]'); if (!a) return;
     if (a.dataset.a === 'zu') return schliesseKarte();
     beginnen(a.dataset.a === '20' ? 1/20 : 1);
   });
+  const knoepfe = `<div class="acts"><button class="kp" data-a="1">AR starten 1:1</button><button data-a="20">Tischmodell 1:20</button><button data-a="zu">Schliessen</button></div>`;
+  const anleitung = `<p>Handy langsam über den Boden bewegen, bis ein Ring erscheint. Dann antippen: das Möbel steht dort im Massstab 1:1.</p>
+       <p>Mit ↺ ↻ drehen, «Neu platzieren» zum Verschieben. Der Bestand (Wände) ist ausgeblendet – der echte Raum ist ja da.</p>`;
+  // sofort zeigen – die Prüfung «kann das Gerät AR?» dauert auf Android manchmal lange (ARCore wird geprüft) oder antwortet nie
+  karte.innerHTML = `<h2>Im Raum anzeigen (Beta)</h2><p id="arstatus">Prüfe, ob dieses Gerät AR kann …</p>` + anleitung + knoepfe;
+  document.body.appendChild(karte);
+  if (!navigator.xr) { zeigeNichtMoeglich(); return; }
+  const ok = await Promise.race([kannAR(), new Promise(r => setTimeout(() => r('unklar'), 4000))]);
+  if (!karte) return;
+  const st = karte.querySelector('#arstatus');
+  if (ok === true) st.textContent = 'AR ist auf diesem Gerät verfügbar.';
+  else if (ok === 'unklar') st.textContent = 'Das Gerät antwortet nicht eindeutig – einfach «AR starten» versuchen.';
+  else st.innerHTML = 'Chrome meldet: AR nicht verfügbar. Prüfen: App «Google Play-Dienste für AR» installiert/aktuell? Du kannst es trotzdem versuchen.';
+}
+function zeigeNichtMoeglich(){
+  karte.innerHTML = `<h2>AR auf diesem Gerät nicht möglich</h2>
+       <p>Die AR-Ansicht braucht <b>Chrome auf Android</b> mit der App «Google Play-Dienste für AR» (ARCore).
+       Auf dem iPhone geht es im Browser noch nicht.</p>
+       <div class="acts"><button data-a="zu">Schliessen</button></div>`;
 }
 
 function bauOverlay(){
