@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1C5FD1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>Türaufmass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6EAEC; --surface:#FFFFFF; --surface-2:#F1F3F4; --ink:#1A2024; --muted:#5A656C;
+  --line:#CBD2D6; --accent:#1C5FD1; --on-accent:#FFFFFF; --warn:#B8323A; --warn-bg:#FBE9EA;
+  --ok:#1E7A46; --ok-bg:#E5F3EA; --run:#8A5A00; --run-bg:#FFF3D6; --shadow:0 6px 24px rgba(20,30,40,.10);
+  --font:"Barlow Semi Condensed","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171A; --surface:#1D2226; --surface-2:#252B30; --ink:#E4E8EB; --muted:#97A2A9;
+    --line:#343C42; --accent:#6AA2FF; --on-accent:#0A1830; --warn:#FF7378; --warn-bg:#3A1C1F;
+    --ok:#6FD39A; --ok-bg:#16301F; --run:#F2C15C; --run-bg:#3A2E12; --shadow:0 6px 24px rgba(0,0,0,.4); color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.4;min-height:100vh;
+  padding:max(12px,env(safe-area-inset-top)) 12px max(24px,env(safe-area-inset-bottom))}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{max-width:720px;margin:0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin:0 0 12px}
+.top{display:flex;align-items:center;gap:10px;margin:4px 0 14px}
+.top h1{flex:1;margin:0;font-size:24px;line-height:1.15}
+.top small{display:block;font-size:14px;font-weight:500;color:var(--muted)}
+h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);
+  border-radius:10px;padding:8px 14px;font-size:16px;font-weight:600;min-height:44px;cursor:pointer;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.icon{width:44px;padding:0}
+.btn:disabled{opacity:.5}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.acts > *{flex:1 1 auto}
+label{display:block;font-size:15px;font-weight:600;margin:10px 0 4px}
+.field{width:100%;font-size:18px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);min-height:48px}
+textarea.field{min-height:72px;resize:vertical}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 auto;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);font-weight:600;padding:0 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.mass{position:relative}
+.mass input{text-align:right;font-weight:700;font-size:20px;padding-right:40px}
+.mass span{position:absolute;right:12px;bottom:13px;font-size:14px;color:var(--muted)}
+.mass.aktiv input{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.hint{font-size:14px;color:var(--muted);margin:6px 0 0}
+.chip{display:inline-block;border-radius:8px;padding:3px 8px;font-size:14px;font-weight:700}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}.chip.warn{background:var(--warn-bg);color:var(--warn)}.chip.offen{background:var(--run-bg);color:var(--run)}
+.tuer{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:12px;margin:0 0 8px;cursor:pointer;min-height:64px}
+.tuer .n{flex:1;min-width:0}.tuer b{display:block;font-size:18px}.tuer .s{font-size:14px;color:var(--muted)}
+.ergebnis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.ergebnis div{background:var(--surface-2);border-radius:10px;padding:8px}.ergebnis small{display:block;font-size:13px;color:var(--muted)}
+.ergebnis b{font-size:22px}
+.warnung{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;margin-top:8px;font-weight:600}
+.fotos{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.fotos img{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.leiste{position:sticky;bottom:0;background:var(--bg);padding:10px 0 4px;display:flex;gap:8px}
+.leiste > *{flex:1}
+.status{font-size:14px;color:var(--muted);margin:8px 0}
+svg.skizze{width:100%;max-width:320px;height:auto;display:block;margin:8px auto 0}
+.check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600}
+.check input{width:22px;height:22px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script src="glm.js"></script>
+<script>
+(function(){
+'use strict';
+// ---------- Grundlagen ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+const jetzt = () => new Date().toISOString();
+const mm = v => v == null || v === '' || isNaN(v) ? '–' : String(Math.round(v * 2) / 2).replace('.', ',');
+const zahl = s => { const v = parseFloat(String(s).replace(/[\s’']/g, '').replace(',', '.')); return isFinite(v) ? v : null; };
+const neueId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const TOL = 5;   // mm: Unterschied oben/unten bzw. links/rechts ab dem gewarnt wird
+
+const TYPEN = ['Blockrahmen', 'Futter', 'Stahlzarge', 'Rahmentüre'];
+const EINSCHLAG = ['stumpf', 'mit Überschlag'];
+const ANSCHLAG = ['DIN links', 'DIN rechts'];
+const ANFORD = ['EI30', 'EI60', 'Rauchschutz', 'Schallschutz', 'Nassraum', 'Einbruchschutz'];
+// Messfelder in der Reihenfolge, in der der Bosch-Wert weiterspringt
+const MASSE = [
+  {k:'b_o', t:'Breite oben', g:'b'}, {k:'b_m', t:'Breite Mitte', g:'b'}, {k:'b_u', t:'Breite unten', g:'b'},
+  {k:'h_l', t:'Höhe links', g:'h'}, {k:'h_r', t:'Höhe rechts', g:'h'},
+  {k:'w_o', t:'Wand oben', g:'w'}, {k:'w_m', t:'Wand Mitte', g:'w'}, {k:'w_u', t:'Wand unten', g:'w'},
+  {k:'d_b', t:'Durchgang Breite', g:'opt'}, {k:'d_h', t:'Durchgang Höhe', g:'opt'}, {k:'rb', t:'Rahmenbreite', g:'opt'},
+  {k:'dg1', t:'Diagonale 1', g:'opt'}, {k:'dg2', t:'Diagonale 2', g:'opt'},
+];
+
+const token = () => ls.get('upload-schluessel'), repo = () => ls.get('planung-repo');
+const BETA = ls.get('beta') === '1';
+const Q = new URLSearchParams(location.search);
+let S = {ansicht: 'liste', nr: null, tuerId: null, aktivFeld: null, sync: ''};
+let index = ladeLokal('tueren-index') || {v:1, auftraege: []};
+let daten = null;   // aktueller Auftrag {v, auftrag:{nr,titel,kunde,objekt,adresse}, tueren:[]}
+
+function ladeLokal(k){ try { return JSON.parse(ls.get(k) || 'null'); } catch(e){ return null; } }
+
+// ---------- GitHub (privates Repo, Branch «kontrolle», Ordner tueren/) ----------
+const API = 'https://api.github.com', BRANCH = 'kontrolle';
+async function gh(method, pfad, body){
+  const r = await fetch(API + pfad, {method, headers: Object.assign({'Authorization': 'Bearer ' + token(), 'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'}, body ? {'Content-Type': 'application/json'} : {}), body: body ? JSON.stringify(body) : undefined});
+  if (r.status === 404) return null;
+  if (!r.ok) { const e = new Error('GitHub ' + r.status); e.status = r.status; throw e; }
+  return r.status === 204 ? {} : r.json();
+}
+const b64enc = s => btoa(unescape(encodeURIComponent(s))), b64dec = s => decodeURIComponent(escape(atob(s.replace(/\s/g, ''))));
+const pfad = p => '/repos/' + repo() + '/contents/' + p.split('/').map(encodeURIComponent).join('/');
+async function branchSicher(){
+  if (await gh('GET', '/repos/' + repo() + '/git/ref/heads/' + BRANCH)) return;
+  const main = await gh('GET', '/repos/' + repo() + '/git/ref/heads/main');
+  await gh('POST', '/repos/' + repo() + '/git/refs', {ref: 'refs/heads/' + BRANCH, sha: main.object.sha});
+}
+async function holeJson(p){ const f = await gh('GET', pfad(p) + '?ref=' + BRANCH); return f ? {sha: f.sha, d: JSON.parse(b64dec(f.content))} : {sha: null, d: null}; }
+async function schreibe(p, inhaltB64, sha, msg){ return gh('PUT', pfad(p), {message: msg, content: inhaltB64, branch: BRANCH, ...(sha ? {sha} : {})}); }
+const online = () => !!(token() && repo() && navigator.onLine);
+
+// Zusammenführen: je Tür bzw. Auftrag gewinnt der neuere Zeitstempel
+function mischeIndex(a, b){
+  const m = {}; for (const q of [a, b]) for (const x of (q && q.auftraege) || []) if (!m[x.nr] || (x.zeit || '') > (m[x.nr].zeit || '')) m[x.nr] = x;
+  return {v: 1, auftraege: Object.values(m).sort((x, y) => String(y.zeit).localeCompare(String(x.zeit)))};
+}
+function mischeDaten(a, b){
+  if (!a) return b; if (!b) return a;
+  const t = {}; for (const q of [a, b]) for (const x of q.tueren || []) if (!t[x.id] || (x.zeit || '') > (t[x.id].zeit || '')) t[x.id] = x;
+  const auftrag = (a.auftrag && b.auftrag) ? ((a.auftrag.zeit || '') > (b.auftrag.zeit || '') ? a.auftrag : b.auftrag) : (a.auftrag || b.auftrag);
+  return {v: 1, auftrag, tueren: Object.values(t).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''))};
+}
+let syncT = 0, laeuft = false;
+function speichern(){
+  if (daten) ls.set('tueren-' + daten.auftrag.nr, JSON.stringify(daten));
+  ls.set('tueren-index', JSON.stringify(index));
+  clearTimeout(syncT); syncT = setTimeout(hochladen, 2000);
+}
+async function hochladen(versuch){
+  if (!token() || !repo()) { S.sync = 'Nur auf diesem Gerät gespeichert (kein Upload-Schlüssel).'; return zeigeSync(); }
+  if (!navigator.onLine) { S.sync = 'Offline – auf dem Gerät gespeichert, wird später hochgeladen.'; return zeigeSync(); }
+  if (laeuft) { clearTimeout(syncT); syncT = setTimeout(hochladen, 1500); return; }
+  laeuft = true; S.sync = 'Speichere …'; zeigeSync();
+  try {
+    await branchSicher();
+    await fotosHochladen();
+    const fi = await holeJson('tueren/index.json'); index = mischeIndex(fi.d, index); ls.set('tueren-index', JSON.stringify(index));
+    await schreibe('tueren/index.json', b64enc(JSON.stringify(index, null, 1)), fi.sha, 'Türaufmass: Auftragsliste');
+    if (daten) {
+      const p = 'tueren/' + daten.auftrag.nr + '.json', f = await holeJson(p);
+      daten = mischeDaten(f.d, daten); ls.set('tueren-' + daten.auftrag.nr, JSON.stringify(daten));
+      await schreibe(p, b64enc(JSON.stringify(daten, null, 1)), f.sha, 'Türaufmass ' + daten.auftrag.nr);
+    }
+    S.sync = 'Gespeichert für die Planung · ' + new Date().toLocaleTimeString('de-CH', {hour: '2-digit', minute: '2-digit'});
+  } catch(e) {
+    laeuft = false;
+    if ((e.status === 409 || e.status === 422) && !versuch) return hochladen(1);
+    S.sync = e.status === 401 ? 'Upload-Schlüssel ungültig – in der Übersicht neu einfügen. Auf dem Gerät gespeichert.'
+           : 'Hochladen fehlgeschlagen (' + (e.status || e.message) + '). Auf dem Gerät gespeichert.';
+  }
+  laeuft = false; zeigeSync();
+}
+addEventListener('online', () => hochladen());
+function zeigeSync(){ const el = $('#sync'); if (el) el.textContent = S.sync; }
+
+// ---------- Fotos: verkleinern, im Gerät zwischenspeichern (IndexedDB), dann ins Repo ----------
+let idb = null;
+function db(){ return idb || (idb = new Promise((ok, err) => { const r = indexedDB.open('tueraufmass', 1); r.onupgradeneeded = () => r.result.createObjectStore('fotos');
+  r.onsuccess = () => ok(r.result); r.onerror = () => err(r.error); })); }
+async function idbTx(mode, fn){ const d = await db(); return new Promise((ok, err) => { const t = d.transaction('fotos', mode); const r = fn(t.objectStore('fotos')); t.oncomplete = () => ok(r && r.result); t.onerror = () => err(t.error); }); }
+const fotoSetzen = (k, v) => idbTx('readwrite', s => s.put(v, k)), fotoHolen = k => idbTx('readonly', s => s.get(k)),
+      fotoLoeschen = k => idbTx('readwrite', s => s.delete(k)), fotoSchluessel = () => idbTx('readonly', s => s.getAllKeys());
+async function verkleinern(file){
+  const img = await createImageBitmap(file); const f = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.72));
+}
+const blobB64 = b => new Promise(ok => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(b); });
+async function fotosHochladen(){
+  for (const k of (await fotoSchluessel().catch(() => [])) || []) {
+    const blob = await fotoHolen(k); if (!blob) continue;
+    const vorhanden = await gh('GET', pfad(k) + '?ref=' + BRANCH);
+    if (!vorhanden) await schreibe(k, await blobB64(blob), null, 'Türaufmass Foto');
+    await fotoLoeschen(k);
+  }
+}
+const fotoUrls = {};
+async function fotoUrl(k){
+  if (fotoUrls[k]) return fotoUrls[k];
+  let blob = await fotoHolen(k).catch(() => null);
+  if (!blob && online()) {
+    const r = await fetch(API + pfad(k) + '?ref=' + BRANCH, {headers: {'Authorization': 'Bearer ' + token(), 'Accept': 'application/vnd.github.raw'}});
+    if (r.ok) blob = await r.blob();
+  }
+  return blob ? (fotoUrls[k] = URL.createObjectURL(blob)) : '';
+}
+
+// ---------- Rechnen und prüfen ----------
+const werte = (t, g) => MASSE.filter(m => m.g === g).map(m => t.masse[m.k]).filter(v => v != null && v !== '');
+function auswerten(t){
+  const B = werte(t, 'b'), Hm = werte(t, 'h'), W = werte(t, 'w');
+  const bezug = t.bezug || 'Fertigboden', mr = +t.meterriss || 1000, ba = t.keinBoden ? (+t.bodenaufbau || 0) : 0;
+  // Höhe ab Fertigboden: ab Meterriss gemessen → + Meterriss; ab Rohboden (kein Fertigboden) → − Bodenaufbau
+  const zuFB = h => bezug === 'Meterriss' ? h + mr : h - ba;
+  const H = Hm.map(zuFB);
+  const r = {B: B.length ? Math.min(...B) : null, H: H.length ? Math.min(...H) : null, W: W.length ? Math.max(...W) : null, hinweise: [], fehlt: []};
+  const spanne = a => a.length > 1 ? Math.max(...a) - Math.min(...a) : 0;
+  if (spanne(B) > TOL) r.hinweise.push(`Breite oben/unten ${mm(spanne(B))} mm verschieden – nicht im Lot`);
+  if (spanne(H) > TOL) r.hinweise.push(`Höhe links/rechts ${mm(spanne(H))} mm verschieden – Sturz/Boden schief`);
+  if (spanne(W) > TOL) r.hinweise.push(`Wandstärke ${mm(spanne(W))} mm verschieden – Leibung schief`);
+  const d1 = t.masse.dg1, d2 = t.masse.dg2;
+  if (d1 && d2 && Math.abs(d1 - d2) > TOL) r.hinweise.push(`Diagonalen ${mm(Math.abs(d1 - d2))} mm verschieden – nicht rechtwinklig`);
+  if (t.keinBoden && !t.bodenaufbau) r.hinweise.push('Kein Fertigboden: Bodenaufbau fehlt');
+  if (!t.typ) r.fehlt.push('Typ'); if (!t.anschlag) r.fehlt.push('Anschlag');
+  if (!B.length) r.fehlt.push('Breite'); if (!Hm.length) r.fehlt.push('Höhe'); if (!W.length) r.fehlt.push('Wandstärke');
+  return r;
+}
+function chip(t){
+  const r = auswerten(t);
+  if (r.fehlt.length) return `<span class="chip offen">fehlt: ${esc(r.fehlt.join(', '))}</span>`;
+  if (r.hinweise.length) return `<span class="chip warn">${r.hinweise.length} Hinweis${r.hinweise.length > 1 ? 'e' : ''}</span>`;
+  return '<span class="chip ok">vollständig</span>';
+}
+// Skizze: Ansicht von der Öffnungsseite mit Lichtmass, Anschlagseite (Bänder) und Wandstärke
+function skizze(t){
+  const r = auswerten(t), B = r.B || 900, H = r.H || 2100, s = 190 / Math.max(B, H) ;
+  const w = B * s, h = H * s, x0 = 70, y0 = 20, links = t.anschlag === 'DIN links';
+  const bandX = links ? x0 : x0 + w;
+  const baender = [0.12, 0.88].map(f => `<rect x="${bandX - 3}" y="${y0 + h * f - 8}" width="6" height="16" fill="currentColor"/>`).join('');
+  const bogen = `M ${bandX} ${y0 + h} L ${links ? x0 + w : x0} ${y0 + h * 0.5} L ${bandX} ${y0}`;
+  return `<svg class="skizze" viewBox="0 0 ${x0 + w + 70} ${y0 + h + 60}" role="img" aria-label="Skizze Tür ${esc(t.nr)}: Breite ${mm(r.B)}, Höhe ${mm(r.H)}">
+    <rect x="${x0 - 12}" y="${y0 - 12}" width="${w + 24}" height="${h + 12}" fill="none" stroke="currentColor" stroke-width="10" opacity=".18"/>
+    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="${bogen}" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="5 4" opacity=".6"/>${baender}
+    <line x1="${x0}" y1="${y0 + h + 22}" x2="${x0 + w}" y2="${y0 + h + 22}" stroke="currentColor"/>
+    <text x="${x0 + w / 2}" y="${y0 + h + 42}" text-anchor="middle" font-size="16" font-weight="700" fill="currentColor">${mm(r.B)}</text>
+    <line x1="${x0 + w + 22}" y1="${y0}" x2="${x0 + w + 22}" y2="${y0 + h}" stroke="currentColor"/>
+    <text x="${x0 + w + 30}" y="${y0 + h / 2}" font-size="16" font-weight="700" fill="currentColor" transform="rotate(90 ${x0 + w + 30} ${y0 + h / 2})" text-anchor="middle">${mm(r.H)}</text>
+    <text x="${x0 - 20}" y="${y0 + h / 2}" font-size="13" fill="currentColor" text-anchor="end">Wand ${mm(r.W)}</text>
+    <text x="${x0 + w / 2}" y="${y0 + h - 8}" font-size="13" fill="currentColor" text-anchor="middle">${esc(t.typ || '')}${t.einschlag ? ', ' + esc(t.einschlag) : ''}</text>
+  </svg>`;
+}
+
+// ---------- Ansichten ----------
+function zeichne(){
+  if (!BETA) {
+    $('#app').innerHTML = `<div class="card"><h1>Türaufmass</h1><p>Diese Funktion ist im Test und nur mit dem <b>Beta-Passwort</b> verfügbar.</p>
+      <a class="btn primary" href="./">Zur Übersicht</a></div>`; return;
+  }
+  if (S.ansicht === 'tuer') return zeichneTuer();
+  if (S.ansicht === 'auftrag') return zeichneAuftrag();
+  zeichneListe();
+}
+function zeichneListe(){
+  const liste = index.auftraege.map(a => `<button class="tuer" type="button" data-auftrag="${esc(a.nr)}">
+      <span class="n"><b>${esc(a.nr)} · ${esc(a.titel || 'Aufmass')}</b><span class="s">${esc([a.kunde, a.objekt].filter(Boolean).join(' · '))}${a.anzahl != null ? ' · ' + a.anzahl + ' Türen' : ''}</span></span>
+      <span aria-hidden="true">›</span></button>`).join('') || '<p class="hint">Noch kein Türaufmass. Lege unten einen Aufmass-Auftrag an oder öffne einen Auftrag aus der Übersicht.</p>';
+  $('#app').innerHTML = `<div class="top"><a class="btn icon" href="./" aria-label="Zur Übersicht">‹</a><h1>Türaufmass<small>Beta · Aufmass ohne Plan</small></h1></div>
+    <div class="card"><h2 style="margin-top:0">Aufmass-Aufträge</h2>${liste}</div>
+    <form class="card" id="neu"><h2 style="margin-top:0">Neuer Aufmass-Auftrag</h2>
+      <div class="grid2"><div><label for="nNr">Auftrags-Nr.</label><input class="field" id="nNr" required inputmode="numeric" autocomplete="off"></div>
+      <div><label for="nTitel">Bezeichnung</label><input class="field" id="nTitel" placeholder="z. B. Türen 2. OG" required></div></div>
+      <label for="nKunde">Kunde</label><input class="field" id="nKunde">
+      <label for="nObjekt">Objekt / Adresse</label><input class="field" id="nObjekt">
+      <div class="acts"><button class="btn primary" type="submit">Anlegen</button></div></form>
+    <p class="status" id="sync">${esc(S.sync)}</p>`;
+  $('#app').querySelectorAll('[data-auftrag]').forEach(b => b.onclick = () => oeffneAuftrag(b.dataset.auftrag));
+  $('#neu').onsubmit = ev => { ev.preventDefault();
+    const nr = $('#nNr').value.trim().replace(/[^0-9A-Za-z_-]/g, '-'); if (!nr) return;
+    oeffneAuftrag(nr, {titel: $('#nTitel').value.trim(), kunde: $('#nKunde').value.trim(), objekt: $('#nObjekt').value.trim()}); };
+}
+async function oeffneAuftrag(nr, neu){
+  daten = ladeLokal('tueren-' + nr);
+  if (!daten) daten = {v: 1, auftrag: Object.assign({nr, titel: '', kunde: '', objekt: '', zeit: jetzt()}, neu || {}), tueren: []};
+  else if (neu) Object.assign(daten.auftrag, Object.fromEntries(Object.entries(neu).filter(([, v]) => v)), {zeit: jetzt()});
+  merkeIndex(); S.ansicht = 'auftrag'; S.nr = nr; history.replaceState(null, '', '?nr=' + encodeURIComponent(nr)); zeichne(); speichern();
+  if (online()) holeJson('tueren/' + nr + '.json').then(f => { if (f.d) { daten = mischeDaten(f.d, daten); ls.set('tueren-' + nr, JSON.stringify(daten)); merkeIndex(); if (S.ansicht === 'auftrag') zeichne(); } }).catch(() => {});
+}
+function merkeIndex(){
+  const a = daten.auftrag, e = {nr: a.nr, titel: a.titel, kunde: a.kunde, objekt: a.objekt, anzahl: daten.tueren.filter(t => !t.geloescht).length, zeit: jetzt()};
+  index.auftraege = [e].concat(index.auftraege.filter(x => x.nr !== a.nr));
+}
+function zeichneAuftrag(){
+  const a = daten.auftrag, T = daten.tueren.filter(t => !t.geloescht);
+  const liste = T.map(t => { const r = auswerten(t);
+    return `<button class="tuer" type="button" data-tuer="${esc(t.id)}"><span class="n"><b>${esc(t.nr || 'ohne Nr.')}${t.raum ? ' · ' + esc(t.raum) : ''}</b>
+      <span class="s">${esc([t.typ, t.einschlag, t.anschlag].filter(Boolean).join(', ') || 'Typ fehlt')} · ${mm(r.B)} × ${mm(r.H)} · Wand ${mm(r.W)}</span></span>${chip(t)}</button>`; }).join('')
+    || '<p class="hint">Noch keine Tür erfasst.</p>';
+  $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zur Auftragsliste">‹</button>
+      <h1>${esc(a.nr)} · ${esc(a.titel || 'Türaufmass')}<small>${esc([a.kunde, a.objekt].filter(Boolean).join(' · ') || 'Türaufmass')}</small></h1></div>
+    <div class="card"><h2 style="margin-top:0">Türen (${T.length})</h2>${liste}
+      <div class="acts"><button class="btn primary" type="button" id="neueTuer">+ Tür hinzufügen</button></div></div>
+    <div class="card"><h2 style="margin-top:0">Für den Türhersteller</h2>
+      <div class="acts"><button class="btn" type="button" id="pdf">Türliste PDF</button><button class="btn" type="button" id="csv">Excel/CSV</button><button class="btn" type="button" id="teilen">Teilen</button></div></div>
+    <p class="status" id="sync">${esc(S.sync)}</p>`;
+  $('#zurueck').onclick = () => { S.ansicht = 'liste'; daten = null; history.replaceState(null, '', location.pathname); zeichne(); };
+  $('#neueTuer').onclick = neueTuer;
+  $('#app').querySelectorAll('[data-tuer]').forEach(b => b.onclick = () => { S.tuerId = b.dataset.tuer; S.ansicht = 'tuer'; S.aktivFeld = null; zeichne(); scrollTo(0, 0); });
+  $('#pdf').onclick = drucken; $('#csv').onclick = csv; $('#teilen').onclick = teilen;
+}
+function neueTuer(){
+  const vorher = daten.tueren.filter(t => !t.geloescht).slice(-1)[0];   // Typ, Einschlag, Anschlag, Bezug, Wand übernehmen – Türen im Objekt sind oft gleich
+  const nrNeu = vorher && /\d+$/.test(vorher.nr || '') ? vorher.nr.replace(/\d+$/, d => String(+d + 1).padStart(d.length, '0')) : '';
+  const t = {id: neueId(), nr: nrNeu, raum: '', typ: vorher ? vorher.typ : '', einschlag: vorher ? vorher.einschlag : '', anschlag: '',
+    bezug: vorher ? vorher.bezug : 'Fertigboden', meterriss: vorher ? vorher.meterriss : 1000, keinBoden: vorher ? vorher.keinBoden : false,
+    bodenaufbau: vorher ? vorher.bodenaufbau : '', masse: {}, anf: [], schloss: '', baender: '', druecker: '', schliesser: false, bodendichtung: false,
+    notiz: '', fotos: [], erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''};
+  daten.tueren.push(t); S.tuerId = t.id; S.ansicht = 'tuer'; S.aktivFeld = 'b_o'; speichern(); zeichne(); scrollTo(0, 0);
+}
+const aktuelleTuer = () => daten.tueren.find(t => t.id === S.tuerId);
+function seg(name, opts, wert, multi){
+  return `<div class="seg" role="group" data-seg="${name}">${opts.map(o => `<button type="button" data-v="${esc(o)}" aria-pressed="${multi ? (wert || []).includes(o) : wert === o}">${esc(o)}</button>`).join('')}</div>`;
+}
+function massFeld(m, t){
+  const v = t.masse[m.k];
+  return `<div class="mass${S.aktivFeld === m.k ? ' aktiv' : ''}"><label for="m_${m.k}">${esc(m.t)}</label>
+    <input class="field" id="m_${m.k}" data-mass="${m.k}" inputmode="decimal" autocomplete="off" value="${v != null && v !== '' ? esc(mm(v)) : ''}" placeholder="–"><span>mm</span></div>`;
+}
+function zeichneTuer(){
+  const t = aktuelleTuer(); if (!t) { S.ansicht = 'auftrag'; return zeichne(); }
+  const r = auswerten(t), M = g => MASSE.filter(m => m.g === g).map(m => massFeld(m, t)).join('');
+  const hBez = t.bezug === 'Meterriss' ? 'ab Meterriss gemessen' : (t.keinBoden ? 'ab Rohboden gemessen' : 'ab Fertigboden gemessen');
+  $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zur Türliste">‹</button>
+      <h1>Tür ${esc(t.nr || '')}<small>${esc(daten.auftrag.nr)} · ${esc(daten.auftrag.titel || '')}</small></h1></div>
+    <div class="card">
+      <div class="grid2"><div><label for="tNr">Tür-Nr.</label><input class="field" id="tNr" data-f="nr" value="${esc(t.nr)}" placeholder="T1.04"></div>
+      <div><label for="tRaum">Raum / Geschoss</label><input class="field" id="tRaum" data-f="raum" value="${esc(t.raum)}" placeholder="Büro 2.12"></div></div>
+      <label>Typ</label>${seg('typ', TYPEN, t.typ)}
+      <label>Einschlag</label>${seg('einschlag', EINSCHLAG, t.einschlag)}
+      <label>Anschlag</label>${seg('anschlag', ANSCHLAG, t.anschlag)}
+    </div>
+    <div class="card"><h2 style="margin-top:0">Höhenbezug</h2>${seg('bezug', ['Fertigboden', 'Meterriss'], t.bezug)}
+      <div ${t.bezug === 'Meterriss' ? '' : 'hidden'}><label for="tMr">Meterriss über Fertigboden</label><div class="mass"><input class="field" id="tMr" data-f="meterriss" inputmode="decimal" value="${esc(mm(t.meterriss || 1000))}"><span>mm</span></div></div>
+      <label class="check"><input type="checkbox" data-f="keinBoden" ${t.keinBoden ? 'checked' : ''}> Noch kein Fertigboden (ab Rohboden gemessen)</label>
+      <div ${t.keinBoden ? '' : 'hidden'}><label for="tBa">Bodenaufbau</label><div class="mass"><input class="field" id="tBa" data-f="bodenaufbau" inputmode="decimal" value="${t.bodenaufbau !== '' && t.bodenaufbau != null ? esc(mm(t.bodenaufbau)) : ''}" placeholder="–"><span>mm</span></div></div>
+    </div>
+    <div class="card"><h2 style="margin-top:0">Masse</h2>
+      <div class="acts" style="margin-top:0"><button class="btn${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome auf Android')}</button></div>
+      <p class="hint">Feld antippen, dann am Bosch messen – der Wert springt danach ins nächste leere Feld.</p>
+      <h2>Lichte Breite</h2><div class="grid3">${M('b')}</div>
+      <h2>Lichte Höhe <span style="text-transform:none;letter-spacing:0">(${hBez})</span></h2><div class="grid2">${M('h')}</div>
+      <h2>Wandstärke</h2><div class="grid3">${M('w')}</div>
+      <h2>Optional</h2><div class="grid2">${M('opt')}</div>
+      <div class="ergebnis"><div><small>Lichtmass Breite</small><b>${mm(r.B)}</b></div><div><small>Höhe ab Fertigboden</small><b>${mm(r.H)}</b></div><div><small>Wandstärke max.</small><b>${mm(r.W)}</b></div></div>
+      ${r.hinweise.map(h => `<div class="warnung">${esc(h)}</div>`).join('')}
+      ${r.fehlt.length ? `<p class="hint">Fehlt noch: ${esc(r.fehlt.join(', '))}</p>` : ''}
+      ${skizze(t)}
+    </div>
+    <div class="card"><h2 style="margin-top:0">Anforderungen</h2>${seg('anf', ANFORD, t.anf, true)}
+      <h2>Beschläge</h2>
+      <div class="grid2"><div><label for="tSchloss">Schloss</label><input class="field" id="tSchloss" data-f="schloss" value="${esc(t.schloss)}" placeholder="PZ / BB / WC"></div>
+      <div><label for="tBaender">Bänder</label><input class="field" id="tBaender" data-f="baender" value="${esc(t.baender)}"></div></div>
+      <label for="tDr">Drücker</label><input class="field" id="tDr" data-f="druecker" value="${esc(t.druecker)}">
+      <label class="check"><input type="checkbox" data-f="schliesser" ${t.schliesser ? 'checked' : ''}> Türschliesser</label>
+      <label class="check"><input type="checkbox" data-f="bodendichtung" ${t.bodendichtung ? 'checked' : ''}> Bodendichtung</label>
+      <label for="tNotiz">Notiz</label><textarea class="field" id="tNotiz" data-f="notiz">${esc(t.notiz)}</textarea>
+      <h2>Fotos</h2><div class="fotos" id="fotos"></div>
+      <div class="acts"><label class="btn" style="margin:0">Foto aufnehmen<input type="file" accept="image/*" capture="environment" id="foto" hidden></label></div>
+    </div>
+    <div class="leiste"><button class="btn" type="button" id="loeschen">Tür löschen</button><button class="btn primary" type="button" id="weiter">Fertig · nächste Tür</button></div>
+    <p class="status" id="sync">${esc(S.sync)}</p>`;
+  $('#zurueck').onclick = () => { S.ansicht = 'auftrag'; zeichne(); };
+  $('#weiter').onclick = neueTuer;
+  $('#loeschen').onclick = () => { if (confirm('Tür ' + (t.nr || '') + ' löschen?')) { aendern(t, {geloescht: true}); S.ansicht = 'auftrag'; zeichne(); } };
+  $('#glm').onclick = () => GLM.verbinden();
+  $('#app').querySelectorAll('[data-seg]').forEach(g => g.onclick = ev => {
+    const b = ev.target.closest('button'); if (!b) return; const f = g.dataset.seg, v = b.dataset.v;
+    if (f === 'anf') { const a = new Set(t.anf || []); a.has(v) ? a.delete(v) : a.add(v); aendern(t, {anf: [...a]}); }
+    else aendern(t, {[f]: t[f] === v && f !== 'bezug' ? '' : v});
+    zeichneMitFokus();
+  });
+  $('#app').querySelectorAll('[data-mass]').forEach(i => {
+    i.onfocus = () => { S.aktivFeld = i.dataset.mass; $('#app').querySelectorAll('.mass.aktiv').forEach(x => x.classList.remove('aktiv')); i.parentNode.classList.add('aktiv'); };
+    i.onchange = () => { const m = Object.assign({}, t.masse, {[i.dataset.mass]: i.value.trim() === '' ? null : zahl(i.value)}); aendern(t, {masse: m}); zeichneMitFokus(); };
+  });
+  $('#app').querySelectorAll('[data-f]').forEach(i => {
+    const ev = i.type === 'checkbox' ? 'change' : 'change';
+    i.addEventListener(ev, () => { const f = i.dataset.f;
+      const v = i.type === 'checkbox' ? i.checked : (['meterriss', 'bodenaufbau'].includes(f) ? zahl(i.value) : i.value);
+      aendern(t, {[f]: v}); if (['keinBoden', 'meterriss', 'bodenaufbau', 'nr'].includes(f)) zeichneMitFokus(); });
+  });
+  $('#foto').onchange = async ev => { const f = ev.target.files[0]; if (!f) return;
+    const blob = await verkleinern(f), k = `tueren/${daten.auftrag.nr}/${t.id}-${(t.fotos || []).length + 1}-${Date.now().toString(36)}.jpg`;
+    await fotoSetzen(k, blob); aendern(t, {fotos: (t.fotos || []).concat(k)}); zeigeFotos(t); };
+  zeigeFotos(t);
+}
+async function zeigeFotos(t){
+  const el = $('#fotos'); if (!el) return;
+  el.innerHTML = (t.fotos || []).length ? '' : '<p class="hint">Noch keine Fotos.</p>';
+  for (const k of t.fotos || []) { const u = await fotoUrl(k); el.insertAdjacentHTML('beforeend', u ? `<img src="${u}" alt="Foto Tür ${esc(t.nr)}">` : '<span class="hint">Foto lädt …</span>'); }
+}
+function zeichneMitFokus(){ const id = document.activeElement && document.activeElement.id, y = scrollY; zeichne(); scrollTo(0, y); if (id && $('#' + id)) $('#' + id).focus({preventScroll: true}); }
+function aendern(t, w){ Object.assign(t, w, {zeit: jetzt()}); merkeIndex(); speichern(); }
+
+// Bosch-Messwert → aktives Feld, danach nächstes leeres Pflichtfeld
+GLM.beiStatus = () => { const b = $('#glm'); if (b) { b.textContent = GLM.text(); b.classList.toggle('primary', GLM.status === 'ok'); } };
+GLM.beiWert = v => {
+  const t = S.ansicht === 'tuer' && aktuelleTuer(); if (!t) return;
+  const k = S.aktivFeld || (MASSE.find(m => m.g !== 'opt' && (t.masse[m.k] == null || t.masse[m.k] === '')) || {}).k; if (!k) return;
+  aendern(t, {masse: Object.assign({}, t.masse, {[k]: v})});
+  const i = MASSE.findIndex(m => m.k === k), naechst = MASSE.slice(i + 1).find(m => t.masse[m.k] == null || t.masse[m.k] === '');
+  S.aktivFeld = naechst ? naechst.k : null; if (navigator.vibrate) navigator.vibrate(60);
+  const y = scrollY; zeichne(); scrollTo(0, y);
+};
+
+// ---------- Ausgaben für den Türhersteller ----------
+const SPALTEN = ['Tür', 'Raum', 'Typ', 'Einschlag', 'Anschlag', 'Lichtmass Breite', 'Höhe ab FB', 'Wandstärke max', 'Breite o/m/u', 'Höhe l/r gemessen',
+  'Höhenbezug', 'Bodenaufbau', 'Wand o/m/u', 'Durchgang B', 'Durchgang H', 'Rahmenbreite', 'Diagonalen', 'Anforderungen', 'Schloss', 'Bänder', 'Drücker',
+  'Türschliesser', 'Bodendichtung', 'Hinweise', 'Notiz'];
+function zeile(t){
+  const r = auswerten(t), M = t.masse, j = ks => ks.map(k => mm(M[k])).join(' / ');
+  return [t.nr, t.raum, t.typ, t.einschlag, t.anschlag, mm(r.B), mm(r.H), mm(r.W), j(['b_o', 'b_m', 'b_u']), j(['h_l', 'h_r']),
+    t.bezug === 'Meterriss' ? `Meterriss (${mm(t.meterriss || 1000)})` : 'Fertigboden', t.keinBoden ? mm(t.bodenaufbau) : '', j(['w_o', 'w_m', 'w_u']),
+    mm(M.d_b), mm(M.d_h), mm(M.rb), j(['dg1', 'dg2']), (t.anf || []).join(', '), t.schloss, t.baender, t.druecker,
+    t.schliesser ? 'ja' : '', t.bodendichtung ? 'ja' : '', r.hinweise.concat(r.fehlt.length ? ['fehlt: ' + r.fehlt.join(', ')] : []).join('; '), t.notiz];
+}
+const aktiveTueren = () => daten.tueren.filter(t => !t.geloescht);
+function csv(){
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const text = '﻿' + [SPALTEN].concat(aktiveTueren().map(zeile)).map(z => z.map(q).join(';')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv;charset=utf-8'}));
+  a.download = `Tueraufmass_${daten.auftrag.nr}.csv`; document.body.appendChild(a); a.click(); a.remove();
+}
+function drucken(){
+  const a = daten.auftrag, w = window.open('', '_blank'); if (!w) return;
+  const karten = aktiveTueren().map(t => { const z = zeile(t), r = auswerten(t);
+    return `<section><div class="sk">${skizze(t)}</div><div><h2>Tür ${esc(t.nr)} ${t.raum ? '· ' + esc(t.raum) : ''}</h2>
+      <p><b>${esc([t.typ, t.einschlag, t.anschlag].filter(Boolean).join(', '))}</b></p>
+      <p>Lichtmass <b>${mm(r.B)} × ${mm(r.H)}</b> (Höhe ab Fertigboden) · Wandstärke <b>${mm(r.W)}</b></p>
+      <table>${SPALTEN.slice(8).map((s, i) => z[i + 8] ? `<tr><th>${esc(s)}</th><td>${esc(z[i + 8])}</td></tr>` : '').join('')}</table></div></section>`; }).join('');
+  w.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Türaufmass ${esc(a.nr)}</title>
+    <style>body{font:13px system-ui,sans-serif;margin:18px;color:#1A2024}h1{margin:0 0 4px}section{display:grid;grid-template-columns:200px 1fr;gap:16px;
+    border-top:1px solid #bbb;padding:12px 0;page-break-inside:avoid}h2{margin:0 0 4px;font-size:16px}p{margin:2px 0}table{border-collapse:collapse;margin-top:6px}
+    th,td{text-align:left;padding:2px 10px 2px 0;vertical-align:top}th{font-weight:600;color:#555}svg{width:200px;height:auto}</style>
+    <h1>Türaufmass ${esc(a.nr)} ${a.titel ? '· ' + esc(a.titel) : ''}</h1><p>${esc([a.kunde, a.objekt].filter(Boolean).join(' · '))} · ${new Date().toLocaleDateString('de-CH')} · ${aktiveTueren().length} Türen · Masse in mm</p>
+    ${karten}<script>setTimeout(()=>print(),400)<\/script></html>`);
+  w.document.close();
+}
+function teilen(){
+  const text = `Türaufmass ${daten.auftrag.nr} ${daten.auftrag.titel || ''}\n` + aktiveTueren().map(t => { const r = auswerten(t);
+    return `${t.nr || '–'} ${t.raum || ''}: ${[t.typ, t.einschlag, t.anschlag].filter(Boolean).join(', ')} · ${mm(r.B)} × ${mm(r.H)} · Wand ${mm(r.W)}`; }).join('\n');
+  if (navigator.share) navigator.share({title: 'Türaufmass ' + daten.auftrag.nr, text}).catch(() => {});
+  else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => alert('In die Zwischenablage kopiert.'));
+}
+
+// ---------- Start ----------
+async function start(){
+  if (online()) holeJson('tueren/index.json').then(f => { if (f.d) { index = mischeIndex(f.d, index); ls.set('tueren-index', JSON.stringify(index)); if (S.ansicht === 'liste') zeichne(); } }).catch(() => {});
+  S.sync = token() ? '' : 'Ohne Upload-Schlüssel wird nur auf diesem Gerät gespeichert.';
+  const nr = Q.get('nr');
+  if (nr && BETA) return oeffneAuftrag(nr, {titel: Q.get('titel') || '', kunde: Q.get('kunde') || ''});
+  zeichne();
+}
+window.__tuer = {auswerten, mischeDaten, zeile};   // für Tests
+start();
+})();
+</script>
+</body>
+</html>

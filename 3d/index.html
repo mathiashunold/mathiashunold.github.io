@@ -165,6 +165,7 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
       </div>
       <button class="linkbtn" id="logout" type="button">Abmelden</button>
     </div>
+    <div class="acts" id="betaLeiste" hidden style="margin:0 0 16px"><a class="btn" href="tueren.html">Türaufmass (Beta) – Aufmass ohne Plan</a></div>
 
     <section id="upload" hidden aria-labelledby="upH">
       <h2 id="upH">Neuen Planstand hochladen</h2>
@@ -309,7 +310,8 @@ async function start(){
 // ---------- Übersicht ----------
 async function zeigeApp(){
   $('#login').hidden = true; $('#app').hidden = false;
-  $('#roleBadge').textContent = S.rolle === 'planung' ? 'Planung' : 'Werkstatt';
+  $('#roleBadge').textContent = S.rolle === 'planung' ? (S.beta ? 'Beta' : 'Planung') : 'Werkstatt';
+  $('#betaLeiste').hidden = !S.beta;
   $('#upload').hidden = S.rolle !== 'planung';
   zeigeUploadBereich();
   $('#list').innerHTML = '<div class="card empty">Lade Aufträge …</div>';
@@ -379,6 +381,7 @@ function zeichneListe(){
         ${S.rolle === 'planung' ? `<button class="btn" type="button" data-csv="${esc(j.nr)}">Positionsliste (CSV)</button>` : ''}
         ${S.beta && S.token ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#kontrolle">Aufmass-Hilfe (Beta)</a>` : ''}
         ${S.beta ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#ar">AR (Beta)</a>` : ''}
+        ${S.beta ? `<a class="btn" href="tueren.html?nr=${esc(encodeURIComponent(j.nr))}&amp;titel=${esc(encodeURIComponent(j.titel || ''))}&amp;kunde=${esc(encodeURIComponent(j.kunde || ''))}">Türaufmass (Beta)</a>` : ''}
       </div></div>`;
   }
   if (!h) h = `<div class="card empty">${q ? 'Kein Auftrag gefunden.' : (S.rolle === 'planung' ? 'Noch keine Aufträge. Lade oben den ersten Planstand hoch.' : 'Noch keine Aufträge vorhanden.')}</div>`;
