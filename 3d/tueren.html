@@ -118,16 +118,17 @@ const TOL = 5;   // mm: Unterschied oben/unten bzw. links/rechts ab dem gewarnt 
 const TYPEN = ['Blockrahmen', 'Futter', 'Stahlzarge', 'Rahmentüre', 'Blendrahmen'];
 const insTyp = typ => typ === 'Rahmentüre' || typ === 'Blendrahmen';   // Rahmen steht ins Licht (Rahmentüre: in der Leibung, Blendrahmen: vor der Wand)
 const EINSCHLAG = ['stumpf', 'mit Überschlag'];
-const ANSCHLAG = ['DIN links', 'DIN rechts'];
+const ANSCHLAG = ['DIN links', 'DIN rechts'], SEITE = ['innen', 'aussen'];
+const VERLAUF = ['gerade weiter', 'Ecke innen', 'Ecke aussen', 'Wandende'], VERSATZ = ['aussen tiefer', 'aussen höher'];
 const ANFORD = ['EI30', 'EI60', 'Rauchschutz', 'Schallschutz', 'Nassraum'];
 const RC = ['RC2', 'RC3'];   // Einbruchschutz-Klasse (eine wählbar)
 // Messfelder in der Reihenfolge, in der der Bosch-Wert weiterspringt
 const MASSE = [
   {k:'b_o', t:'Breite oben', g:'b'}, {k:'b_m', t:'Breite Mitte', g:'b'}, {k:'b_u', t:'Breite unten', g:'b'},
   {k:'h_l', t:'Höhe links', g:'h'}, {k:'h_r', t:'Höhe rechts', g:'h'},
-  {k:'w_o', t:'Wand oben', g:'w'}, {k:'w_m', t:'Wand Mitte', g:'w'}, {k:'w_u', t:'Wand unten', g:'w'},
+  {k:'w_l', t:'Wand links', g:'w'}, {k:'w_r', t:'Wand rechts', g:'w'},
   {k:'d_b', t:'Durchgang Breite', g:'opt'}, {k:'d_h', t:'Durchgang Höhe', g:'opt'}, 
-  {k:'rb_l', t:'Rahmendicke links', g:'rb'}, {k:'rb_r', t:'Rahmendicke rechts', g:'rb'},
+  {k:'rb_l', t:'Rahmendicke links', g:'rb'}, {k:'rb_r', t:'Rahmendicke rechts', g:'rb'}, {k:'rb_o', t:'Rahmendicke oben', g:'rb'},
 ];
 
 const token = () => ls.get('upload-schluessel'), repo = () => ls.get('planung-repo');
@@ -239,7 +240,7 @@ async function fotoUrl(k){
 // ---------- Rechnen und prüfen ----------
 const werte = (t, g) => MASSE.filter(m => m.g === g).map(m => t.masse[m.k]).filter(v => v != null && v !== '');
 function auswerten(t){
-  const B = werte(t, 'b'), Hm = werte(t, 'h'), W = werte(t, 'w');
+  const B = werte(t, 'b'), Hm = werte(t, 'h'), W = werte(t, 'w').concat(['w_o', 'w_m', 'w_u'].map(k => t.masse[k]).filter(v => v != null && v !== ''));   // alte Aufmasse: oben/Mitte/unten
   const bezug = t.bezug || 'Fertigboden', mr = +t.meterriss || 1000, ba = t.keinBoden ? (+t.bodenaufbau || +t.boden_i || 0) : 0;   // ohne eigenen Wert gilt der Bodenaufbau innen
   // Höhe ab Fertigboden: ab Meterriss gemessen → + Meterriss; ab Rohboden (kein Fertigboden) → − Bodenaufbau
   const zuFB = h => bezug === 'Meterriss' ? h + mr : h - ba;
@@ -248,7 +249,7 @@ function auswerten(t){
   const spanne = a => a.length > 1 ? Math.max(...a) - Math.min(...a) : 0;
   if (spanne(B) > TOL) r.hinweise.push(`Breite oben/unten ${mm(spanne(B))} mm verschieden – nicht im Lot`);
   if (spanne(H) > TOL) r.hinweise.push(`Höhe links/rechts ${mm(spanne(H))} mm verschieden – Sturz/Boden schief`);
-  if (spanne(W) > TOL) r.hinweise.push(`Wandstärke ${mm(spanne(W))} mm verschieden – Leibung schief`);
+  if (spanne(W) > TOL) r.hinweise.push(`Wandstärke links/rechts ${mm(spanne(W))} mm verschieden`);
   // Rahmen: Rahmentüre geht «ins Licht» (pro Seite) → Rahmenlicht = Licht − 2 × x, aussen = + Rahmendicken.
   // Übrige Typen stehen mit Luft in der Öffnung → Rahmen aussen = Licht − Luft (gesamt), Rahmenlicht = − Rahmendicken.
   const M = t.masse, gesetzt = v => v != null && v !== '' && !isNaN(v);
@@ -265,13 +266,15 @@ function auswerten(t){
   }
   // Höhe: Luft oben + unten (gesamt) bzw. Rahmen ins Licht nur oben
   const tr = x => r.rechnung += (r.rechnung ? ' · ' : '') + x;
-  if (r.H != null && insTyp(t.typ) && gesetzt(t.insLicht)) { r.RLH = r.H - t.insLicht; tr(`Rahmenlicht Höhe = ${mm(r.H)} − ${mm(t.insLicht)} = ${mm(r.RLH)}`); }
+  const ro = gesetzt(M.rb_o) ? +M.rb_o : null; r.rbo = ro;
+  if (r.H != null && insTyp(t.typ) && gesetzt(t.insLicht)) { r.RLH = r.H - t.insLicht; tr(`Rahmenlicht Höhe = ${mm(r.H)} − ${mm(t.insLicht)} = ${mm(r.RLH)}`);
+    if (ro != null) { r.RAH = r.RLH + ro; tr(`Rahmen aussen Höhe = ${mm(r.RLH)} + ${mm(ro)} = ${mm(r.RAH)}`); } }
   else if (r.H != null && t.typ && !insTyp(t.typ) && gesetzt(t.luftH)) {
     r.RAH = r.H - t.luftH; tr(`Rahmen aussen Höhe = ${mm(r.H)} − ${mm(t.luftH)} = ${mm(r.RAH)} (oben und unten je ${mm(t.luftH / 2)} Luft)`);
+    if (ro != null) { r.RLH = r.RAH - ro; tr(`Rahmenlicht Höhe = ${mm(r.RAH)} − ${mm(ro)} = ${mm(r.RLH)}`); }
     if (t.luftH < 0 || t.luftH > 60) r.hinweise.push('Luft Höhe: Mass prüfen');
   }
   if (t.keinBoden && !t.bodenaufbau && !t.boden_i) r.hinweise.push('Kein Fertigboden: Bodenaufbau fehlt');
-  if (+t.schwelle > 25) r.hinweise.push(`Schwelle ${mm(t.schwelle)} mm – über 25 mm, nicht hindernisfrei`);
   if (!t.typ) r.fehlt.push('Typ'); if (!t.anschlag) r.fehlt.push('Anschlag');
   if (!B.length) r.fehlt.push('Breite'); if (!Hm.length) r.fehlt.push('Höhe'); if (!W.length) r.fehlt.push('Wandstärke');
   return r;
@@ -308,9 +311,16 @@ const WAND = d => `<path d="${d}" fill="currentColor" opacity=".18"/>`, HOLZ = '
 const TXT = (x, y, t, a) => `<text x="${x}" y="${y}" font-size="9" fill="currentColor" opacity=".75" text-anchor="${a || 'start'}">${t}</text>`;
 const OEFFNUNG = 'M8 2 H112 V92 H95 V15 H25 V92 H8 Z';   // Wand um die Öffnung (Ansicht), Boden bei y = 92
 const BODEN = '<path d="M2 92 H118" stroke="currentColor" stroke-width="1.5"/>';
-function bildWand(){   // senkrechter Schnitt durch die Wand neben der Öffnung
-  return `<svg viewBox="0 0 120 100" aria-hidden="true">${WAND('M45 4 H75 V92 H45 Z')}<path d="M45 4 V92 M75 4 V92" stroke="currentColor" fill="none"/>${BODEN}
-    ${PF(45, 18, 75, 18)}${MK(92, 18, 'a')}${PF(45, 48, 75, 48)}${MK(92, 48, 'b')}${PF(45, 78, 75, 78)}${MK(92, 78, 'c')}${TXT(40, 52, 'Wand', 'end')}</svg>`;
+function bildWand(t){   // Grundriss: Wand links und rechts der Öffnung mit Verlauf, Türblatt auf der Anschlagseite
+  const y1 = 62, y2 = 82, seite = (v, sp) => { const X = x => sp ? 240 - x : x, R = (xa, ya, xb, yb) => `M${X(xa)} ${ya} H${X(xb)} V${yb} H${X(xa)} Z`;
+    return v === 'Wandende' ? R(58, y1, 90, y2) : v === 'Ecke innen' ? R(40, y1, 90, y2) + R(40, y2, 60, 148) : v === 'Ecke aussen' ? R(40, y1, 90, y2) + R(40, 2, 60, y1) : R(0, y1, 90, y2); };
+  let blatt = '';
+  if (t.seite && t.anschlag) { const innen = t.seite === 'innen', bandL = (t.anschlag === 'DIN links') === innen, bx = bandL ? 90 : 150, zx = bandL ? 150 : 90, by = innen ? y2 : y1, ey = innen ? y2 + 60 : y1 - 60;
+    blatt = `<path d="M${bx} ${by} V${ey}" stroke="currentColor" stroke-width="3"/><path d="M${bx} ${ey} A60 60 0 0 ${bandL === innen ? 0 : 1} ${zx} ${by}" stroke="currentColor" stroke-dasharray="4 3" fill="none" opacity=".6"/>`; }
+  return `<svg class="sbild" viewBox="0 0 240 150" aria-hidden="true">${WAND(seite(t.wand_l) + seite(t.wand_r, true))}
+    <path d="${seite(t.wand_l)}${seite(t.wand_r, true)}" stroke="currentColor" stroke-width=".8" fill="none"/>${blatt}
+    ${TXT(120, 12, 'aussen', 'middle')}${TXT(120, 144, 'innen', 'middle')}
+    ${PF(82, y1, 82, y2)}${MK(70, 72, 'a')}${PF(158, y1, 158, y2)}${MK(170, 72, 'b')}</svg>`;
 }
 function bildBezug(t){   // Ansicht der Öffnung: wovon aus die Höhe gemessen wird
   const mr = t.bezug === 'Meterriss', roh = !!t.keinBoden, unten = mr ? 54 : (roh ? 98 : 92);
@@ -324,24 +334,26 @@ function bildRahmen(t){   // Ansicht: Rahmen in bzw. vor der Öffnung
   if (ins) { const a = blend ? 17 : 25, o = blend ? 7 : 15;
     return `<svg viewBox="0 0 120 100" aria-hidden="true">${WAND(OEFFNUNG)}${BODEN}
       <path d="M${a} 92 V${o} H${120 - a} V92 H86 V24 H34 V92 Z" ${HOLZ}/>${blend ? '<path d="M25 92 V15 H95 V92" stroke="currentColor" stroke-dasharray="3 3" fill="none"/>' : ''}
-      ${PF(25, 44, 34, 44)}${MK(46, 44, 'a')}${PF(a, 72, 34, 72)}${MK(46, 72, 'b')}${PF(86, 72, 120 - a, 72)}${MK(74, 72, 'c')}</svg>`; }
+      ${PF(25, 46, 34, 46)}${MK(46, 46, 'a')}${PF(a, 72, 34, 72)}${MK(46, 72, 'b')}${PF(86, 72, 120 - a, 72)}${MK(74, 72, 'c')}${PF(66, o, 66, 24)}${MK(66, 36, 'd')}</svg>`; }
   return `<svg viewBox="0 0 120 100" aria-hidden="true">${WAND(OEFFNUNG)}${BODEN}
     <path d="M29 92 V19 H91 V92 H84 V26 H36 V92 Z" ${HOLZ}/>
-    ${PF(25, 42, 29, 42)}${MK(14, 42, 'a')}${PF(60, 15, 60, 19)}${MK(60, 7, 'b')}${PF(29, 72, 36, 72)}${MK(47, 72, 'c')}${PF(84, 72, 91, 72)}${MK(73, 72, 'd')}</svg>`;
+    ${PF(25, 42, 29, 42)}${MK(14, 42, 'a')}${PF(74, 15, 74, 19)}${MK(86, 8, 'b')}${PF(50, 19, 50, 26)}${MK(50, 38, 'e')}${PF(29, 72, 36, 72)}${MK(47, 72, 'c')}${PF(84, 72, 91, 72)}${MK(73, 72, 'd')}</svg>`;
 }
 function bildDurchgang(){   // Ansicht: freier Durchgang im fertigen Rahmen
   return `<svg viewBox="0 0 120 100" aria-hidden="true">${WAND(OEFFNUNG)}${BODEN}<path d="M25 92 V15 H95 V92 H88 V22 H32 V92 Z" ${HOLZ}/>
     ${PF(32, 40, 88, 40)}${MK(60, 40, 'a')}${PF(72, 22, 72, 92)}${MK(72, 64, 'b')}</svg>`;
 }
-function bildSchwelle(){   // senkrechter Schnitt durch den Boden unter der Türe: innen | Schwelle | aussen
+function bildBoden(t){   // senkrechter Schnitt durch den Boden unter der Türe: innen | aussen mit Versatz der Fertigböden
+  const ya = t.versatzR === 'aussen höher' ? 28 : 44;
   return `<svg class="sbild" viewBox="0 0 240 92" aria-hidden="true">
     <rect x="0" y="62" width="240" height="26" fill="currentColor" opacity=".18"/><path d="M0 62 H240" stroke="currentColor" stroke-width="1.5"/>
     <path d="M0 80 l18 -18 M30 88 l26 -26 M70 88 l26 -26 M110 88 l26 -26 M150 88 l26 -26 M190 88 l26 -26" stroke="currentColor" opacity=".3" fill="none"/>
-    <rect x="0" y="36" width="100" height="26" fill="currentColor" opacity=".08" stroke="currentColor" stroke-width=".8"/>
-    <rect x="140" y="44" width="100" height="18" fill="currentColor" opacity=".08" stroke="currentColor" stroke-width=".8"/>
-    <rect x="100" y="27" width="40" height="35" ${HOLZ}/><rect x="113" y="0" width="14" height="23" fill="currentColor" opacity=".55"/>
-    ${TXT(4, 14, 'innen')}${TXT(236, 14, 'aussen', 'end')}${TXT(4, 84, 'Rohboden')}${TXT(132, 14, 'Türblatt')}
-    ${PF(44, 36, 44, 62)}${MK(58, 49, 'a')}${PF(90, 27, 90, 36)}${MK(76, 26, 'b')}${PF(196, 44, 196, 62)}${MK(210, 53, 'c')}</svg>`;
+    <rect x="0" y="36" width="120" height="26" fill="currentColor" opacity=".08" stroke="currentColor" stroke-width=".8"/>
+    <rect x="120" y="${ya}" width="120" height="${62 - ya}" fill="currentColor" opacity=".08" stroke="currentColor" stroke-width=".8"/>
+    <rect x="113" y="0" width="14" height="${Math.min(36, ya) - 4}" fill="currentColor" opacity=".55"/>
+    <path d="M${ya < 36 ? '96 ' + ya + ' H120' : '120 36 H146'}" stroke="currentColor" stroke-dasharray="3 3"/>
+    ${TXT(4, 14, 'innen')}${TXT(236, 14, 'aussen', 'end')}${TXT(4, 84, 'Rohboden')}
+    ${PF(44, 36, 44, 62)}${MK(58, 49, 'a')}${ya < 36 ? PF(104, ya, 104, 36) + MK(88, 22, 'b') : PF(138, 36, 138, ya) + MK(152, 28, 'b')}${PF(196, ya, 196, 62)}${MK(210, (ya + 62) / 2, 'c')}</svg>`;
 }
 function kacheln(name, opts, wert, bild){
   return `<div class="kacheln${opts.length === 2 ? ' zwei' : ''}" role="group" data-seg="${name}">${opts.map(o =>
@@ -409,7 +421,7 @@ function zeichneAuftrag(){
   const a = daten.auftrag, T = daten.tueren.filter(t => !t.geloescht);
   const liste = T.map(t => { const r = auswerten(t);
     return `<button class="tuer" type="button" data-tuer="${esc(t.id)}"><span class="n"><b>${esc(t.nr || 'ohne Nr.')}${t.raum ? ' · ' + esc(t.raum) : ''}</b>
-      <span class="s">${esc([t.typ, t.einschlag, t.anschlag].filter(Boolean).join(', ') || 'Typ fehlt')} · ${mm(r.B)} × ${mm(r.H)} · Wand ${mm(r.W)}</span></span>${chip(t)}</button>`; }).join('')
+      <span class="s">${esc([t.typ, t.einschlag, t.anschlag, t.seite && 'Anschlag ' + t.seite].filter(Boolean).join(', ') || 'Typ fehlt')} · ${mm(r.B)} × ${mm(r.H)} · Wand ${mm(r.W)}</span></span>${chip(t)}</button>`; }).join('')
     || '<p class="hint">Noch keine Tür erfasst.</p>';
   $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zur Auftragsliste">‹</button>
       <h1>${esc(a.nr)} · ${esc(a.titel || 'Türaufmass')}<small>${esc([a.kunde, a.objekt].filter(Boolean).join(' · ') || 'Türaufmass')}</small></h1></div>
@@ -428,7 +440,7 @@ function neueTuer(){
   const nrNeu = vorher && /\d+$/.test(vorher.nr || '') ? vorher.nr.replace(/\d+$/, d => String(+d + 1).padStart(d.length, '0')) : '';
   const t = {id: neueId(), nr: nrNeu, raum: '', typ: vorher ? vorher.typ : '', einschlag: vorher ? vorher.einschlag : '', anschlag: '',
     bezug: vorher ? vorher.bezug : 'Fertigboden', meterriss: vorher ? vorher.meterriss : 1000, keinBoden: vorher ? vorher.keinBoden : false,
-    bodenaufbau: vorher ? vorher.bodenaufbau : '', boden_i: vorher && vorher.boden_i != null ? vorher.boden_i : '', boden_a: vorher && vorher.boden_a != null ? vorher.boden_a : '', schwelle: '', luft: vorher && vorher.luft != null ? vorher.luft : '', luftH: vorher && vorher.luftH != null ? vorher.luftH : '', insLicht: vorher && vorher.insLicht != null ? vorher.insLicht : '',
+    bodenaufbau: vorher ? vorher.bodenaufbau : '', boden_i: vorher && vorher.boden_i != null ? vorher.boden_i : '', boden_a: vorher && vorher.boden_a != null ? vorher.boden_a : '', versatz: '', versatzR: '', seite: '', wand_l: vorher ? vorher.wand_l || '' : '', wand_r: vorher ? vorher.wand_r || '' : '', luft: vorher && vorher.luft != null ? vorher.luft : '', luftH: vorher && vorher.luftH != null ? vorher.luftH : '', insLicht: vorher && vorher.insLicht != null ? vorher.insLicht : '',
     masse: {}, anf: [], rc: '', schloss: '', baender: '', druecker: '', schliesser: false, bodendichtung: false,
     notiz: '', fotos: [], erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''};
   daten.tueren.push(t); S.offen = {}; S.tuerId = t.id; S.ansicht = 'tuer'; S.aktivFeld = 'b_o'; speichern(); zeichne(); scrollTo(0, 0);
@@ -461,11 +473,12 @@ function zeichneTuer(){
       <label>Typ (Detail antippen)</label>${kacheln('typ', TYPEN, t.typ, o => detail(o, t.einschlag))}
       <label>Einschlag</label>${kacheln('einschlag', EINSCHLAG, t.einschlag, o => detail(t.typ || 'Blockrahmen', o))}
       <label>Anschlag</label>${seg('anschlag', ANSCHLAG, t.anschlag)}
+      <label>Anschlag (Türblatt) auf der Seite</label>${seg('seite', SEITE, t.seite)}
     </div>
     <div class="card"><h2 style="margin-top:0">Masse</h2>
       <div class="acts" style="margin-top:0"><button class="btn${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome auf Android')}</button></div>
       <p class="hint">Feld antippen und Mass eintippen (Enter = nächstes Feld) oder am Bosch messen – der Wert springt ins nächste leere Feld.</p>
-      <div class="fortschritt">${[['Breite', 'b'], ['Höhe', 'h'], ['Wandstärke', 'w']].map(([n, g]) => `<span class="chip ${werte(t, g).length ? 'ok' : 'offen'}">${n} ${werte(t, g).length}/${g === 'h' ? 2 : 3}</span>`).join('')}</div>
+      <div class="fortschritt">${[['Breite', 'b'], ['Höhe', 'h'], ['Wandstärke', 'w']].map(([n, g]) => `<span class="chip ${werte(t, g).length ? 'ok' : 'offen'}">${n} ${werte(t, g).length}/${g === 'b' ? 3 : 2}</span>`).join('')}</div>
       <div class="messbild" role="group" aria-label="Lichtmasse der Öffnung">
         <div>${massFeld(F('h_l'), t, 'Höhe links')}</div>
         <div class="oeff">${massFeld(F('b_o'), t, 'Breite oben')}${massFeld(F('b_m'), t, 'Breite Mitte')}${massFeld(F('b_u'), t, 'Breite unten')}</div>
@@ -477,16 +490,20 @@ function zeichneTuer(){
         <div ${t.bezug === 'Meterriss' ? '' : 'hidden'}>${zusatz('meterriss', 'Meterriss über Fertigboden', Object.assign({}, t, {meterriss: t.meterriss || 1000}), 'a')}</div>
         <label class="check"><input type="checkbox" data-f="keinBoden" ${t.keinBoden ? 'checked' : ''}> Noch kein Fertigboden</label>
         <div ${t.keinBoden ? '' : 'hidden'}>${zusatz('bodenaufbau', 'Bodenaufbau (leer = Boden innen)', t, 'b')}</div></div></div>
-      <h2>Wandstärke</h2><div class="mbild">${bildWand()}<div>${massFeld(F('w_o'), t, 'oben', 'a')}${massFeld(F('w_m'), t, 'Mitte', 'b')}${massFeld(F('w_u'), t, 'unten', 'c')}</div></div>
+      <h2>Wandstärke</h2>${bildWand(t)}
+      <div class="grid2"><div>${massFeld(F('w_l'), t, 'Wand links', 'a')}<label>Wand links läuft</label>${seg('wand_l', VERLAUF, t.wand_l)}</div>
+        <div>${massFeld(F('w_r'), t, 'Wand rechts', 'b')}<label>Wand rechts läuft</label>${seg('wand_r', VERLAUF, t.wand_r)}</div></div>
+      <p class="hint">Grundriss von oben, links/rechts von innen gesehen. Ecke innen/aussen = Wand knickt auf dieser Seite ab.</p>
       ${t.typ ? `<h2>Rahmen <span style="text-transform:none;letter-spacing:0">(${esc(t.typ)})</span></h2><div class="mbild">${bildRahmen(t)}<div>
-        ${insTyp(t.typ) ? zusatz('insLicht', 'ins Licht pro Seite', t, 'a') + massFeld(F('rb_l'), t, 'Rahmendicke links', 'b') + massFeld(F('rb_r'), t, 'Rahmendicke rechts', 'c')
-          : zusatz('luft', 'Luft seitlich gesamt', t, 'a') + zusatz('luftH', 'Luft Höhe gesamt', t, 'b') + massFeld(F('rb_l'), t, 'Rahmendicke links', 'c') + massFeld(F('rb_r'), t, 'Rahmendicke rechts', 'd')}</div></div>
+        ${insTyp(t.typ) ? zusatz('insLicht', 'ins Licht pro Seite', t, 'a') + massFeld(F('rb_l'), t, 'Rahmendicke links', 'b') + massFeld(F('rb_r'), t, 'Rahmendicke rechts', 'c') + massFeld(F('rb_o'), t, 'Rahmendicke oben', 'd')
+          : zusatz('luft', 'Luft seitlich gesamt', t, 'a') + zusatz('luftH', 'Luft Höhe gesamt', t, 'b') + massFeld(F('rb_l'), t, 'Rahmendicke links', 'c') + massFeld(F('rb_r'), t, 'Rahmendicke rechts', 'd') + massFeld(F('rb_o'), t, 'Rahmendicke oben', 'e')}</div></div>
         <p class="hint">${insTyp(t.typ) ? 'Um dieses Mass steht der Rahmen links, rechts und oben ins Lichtmass.' : 'Um diese Masse ist der Rahmen kleiner als das gemessene Lichtmass (beide Seiten bzw. oben und unten zusammen).'}</p>
         ${r.rechnung ? `<div class="rechnung">${r.rechnung.split(' · ').map(x => { const i = x.lastIndexOf('= '); return esc(x.slice(0, i + 2)) + '<b>' + esc(x.slice(i + 2)) + '</b>'; }).join('<br>')}</div>` : ''}`
         : '<p class="hint">Typ wählen – dann erscheinen die passenden Rahmen-Masse (Luft bzw. Rahmen ins Licht).</p>'}
-      <h2>Schwelle und Boden</h2>${bildSchwelle()}
-      <div class="grid3">${zusatz('boden_i', 'Boden innen', t, 'a')}${zusatz('schwelle', 'Schwelle', t, 'b')}${zusatz('boden_a', 'Boden aussen', t, 'c')}</div>
-      <p class="hint">a/c: Bodenaufbau ab Rohboden bis Fertigboden, innen und aussen. b: Schwellenhöhe über Fertigboden innen. Keine Schwelle = 0.</p>
+      <h2>Boden innen / aussen</h2>${bildBoden(t)}
+      <div class="grid3">${zusatz('boden_i', 'Boden innen', t, 'a')}${zusatz('versatz', 'Versatz', t, 'b')}${zusatz('boden_a', 'Boden aussen', t, 'c')}</div>
+      <div style="margin-top:8px">${seg('versatzR', VERSATZ, t.versatzR)}</div>
+      <p class="hint">a/c: Bodenaufbau ab Rohboden bis Fertigboden. b: Versatz der Fertigböden innen ↔ aussen (0 = bündig).</p>
       <div class="ergebnis"><div><small>Lichtmass Breite</small><b>${mm(r.B)}</b></div><div><small>Höhe ab Fertigboden</small><b>${mm(r.H)}</b></div><div><small>Wandstärke max.</small><b>${mm(r.W)}</b></div></div>
       ${r.hinweise.map(h => `<div class="warnung">${esc(h)}</div>`).join('')}
       ${r.fehlt.length ? `<p class="hint">Fehlt noch: ${esc(r.fehlt.join(', '))}</p>` : ''}
@@ -533,8 +550,8 @@ function zeichneTuer(){
   $('#app').querySelectorAll('[data-f]').forEach(i => {
     const ev = i.type === 'checkbox' ? 'change' : 'change';
     i.addEventListener(ev, () => { const f = i.dataset.f;
-      const v = i.type === 'checkbox' ? i.checked : (['meterriss', 'bodenaufbau', 'luft', 'luftH', 'insLicht', 'boden_i', 'schwelle', 'boden_a'].includes(f) ? (i.value.trim() === '' ? '' : zahl(i.value)) : i.value);
-      aendern(t, {[f]: v}); if (['keinBoden', 'meterriss', 'bodenaufbau', 'nr', 'luft', 'luftH', 'insLicht', 'boden_i', 'schwelle', 'boden_a'].includes(f)) zeichneMitFokus(); });
+      const v = i.type === 'checkbox' ? i.checked : (['meterriss', 'bodenaufbau', 'luft', 'luftH', 'insLicht', 'boden_i', 'versatz', 'boden_a'].includes(f) ? (i.value.trim() === '' ? '' : zahl(i.value)) : i.value);
+      aendern(t, {[f]: v}); if (['keinBoden', 'meterriss', 'bodenaufbau', 'nr', 'luft', 'luftH', 'insLicht', 'boden_i', 'versatz', 'boden_a'].includes(f)) zeichneMitFokus(); });
   });
   $('#foto').onchange = async ev => { const f = ev.target.files[0]; if (!f) return;
     const blob = await verkleinern(f), k = `tueren/${daten.auftrag.nr}/${t.id}-${(t.fotos || []).length + 1}-${Date.now().toString(36)}.jpg`;
@@ -564,16 +581,17 @@ GLM.beiWert = v => {
 
 // ---------- Ausgaben für den Türhersteller ----------
 const SPALTEN = ['Tür', 'Raum', 'Typ', 'Einschlag', 'Anschlag', 'Lichtmass Breite', 'Höhe ab FB', 'Wandstärke max', 'Breite o/m/u', 'Höhe l/r gemessen',
-  'Höhenbezug', 'Bodenaufbau', 'Schwellenhöhe', 'Bodenaufbau innen', 'Bodenaufbau aussen', 'Wand o/m/u', 'Durchgang B', 'Durchgang H', 'Luft seitlich gesamt', 'Luft Höhe gesamt', 'Rahmen ins Licht pro Seite',
-  'Rahmendicke l/r', 'Rahmen aussen B', 'Rahmen aussen H', 'Rahmenlicht B', 'Rahmenlicht H', 'Anforderungen', 'Schloss', 'Bänder', 'Drücker',
+  'Höhenbezug', 'Bodenaufbau', 'Bodenversatz', 'Bodenaufbau innen', 'Bodenaufbau aussen', 'Wand l/r', 'Wandverlauf l/r', 'Durchgang B', 'Durchgang H', 'Luft seitlich gesamt', 'Luft Höhe gesamt', 'Rahmen ins Licht pro Seite',
+  'Rahmendicke l/r/o', 'Rahmen aussen B', 'Rahmen aussen H', 'Rahmenlicht B', 'Rahmenlicht H', 'Anforderungen', 'Schloss', 'Bänder', 'Drücker',
   'Türschliesser', 'Bodendichtung', 'Hinweise', 'Notiz'];
 const leer = v => v == null || v === '' || isNaN(v) ? '' : mm(v);
 function zeile(t){
   const r = auswerten(t), M = t.masse, j = ks => ks.map(k => mm(M[k])).join(' / ');
-  return [t.nr, t.raum, t.typ, t.einschlag, t.anschlag, mm(r.B), mm(r.H), mm(r.W), j(['b_o', 'b_m', 'b_u']), j(['h_l', 'h_r']),
-    t.bezug === 'Meterriss' ? `Meterriss (${mm(t.meterriss || 1000)})` : 'Fertigboden', t.keinBoden ? leer(t.bodenaufbau === '' || t.bodenaufbau == null ? t.boden_i : t.bodenaufbau) : '', leer(t.schwelle), leer(t.boden_i), leer(t.boden_a), j(['w_o', 'w_m', 'w_u']),
+  return [t.nr, t.raum, t.typ, t.einschlag, [t.anschlag, t.seite].filter(Boolean).join(', '), mm(r.B), mm(r.H), mm(r.W), j(['b_o', 'b_m', 'b_u']), j(['h_l', 'h_r']),
+    t.bezug === 'Meterriss' ? `Meterriss (${mm(t.meterriss || 1000)})` : 'Fertigboden', t.keinBoden ? leer(t.bodenaufbau === '' || t.bodenaufbau == null ? t.boden_i : t.bodenaufbau) : '', leer(t.versatz) && leer(t.versatz) + (+t.versatz && t.versatzR ? ' (' + t.versatzR + ')' : ''), leer(t.boden_i), leer(t.boden_a),
+    M.w_l != null || M.w_r != null ? j(['w_l', 'w_r']) : j(['w_o', 'w_m', 'w_u']), t.wand_l || t.wand_r ? (t.wand_l || '–') + ' / ' + (t.wand_r || '–') : '',
     leer(M.d_b), leer(M.d_h), t.typ && !insTyp(t.typ) ? leer(t.luft) : '', t.typ && !insTyp(t.typ) ? leer(t.luftH) : '', insTyp(t.typ) ? leer(t.insLicht) : '',
-    r.rbl != null || r.rbr != null ? mm(r.rbl) + ' / ' + mm(r.rbr) : '', leer(r.RA), leer(r.RAH), leer(r.RL), leer(r.RLH), (t.anf || []).concat(t.rc ? [t.rc] : []).join(', '), t.schloss, t.baender, t.druecker,
+    r.rbl != null || r.rbr != null || r.rbo != null ? mm(r.rbl) + ' / ' + mm(r.rbr) + ' / ' + mm(r.rbo) : '', leer(r.RA), leer(r.RAH), leer(r.RL), leer(r.RLH), (t.anf || []).concat(t.rc ? [t.rc] : []).join(', '), t.schloss, t.baender, t.druecker,
     t.schliesser ? 'ja' : '', t.bodendichtung ? 'ja' : '', r.hinweise.concat(r.fehlt.length ? ['fehlt: ' + r.fehlt.join(', ')] : []).join('; '), t.notiz];
 }
 const aktiveTueren = () => daten.tueren.filter(t => !t.geloescht);
@@ -587,7 +605,7 @@ function drucken(){
   const a = daten.auftrag, w = window.open('', '_blank'); if (!w) return;
   const karten = aktiveTueren().map(t => { const z = zeile(t), r = auswerten(t);
     return `<section><div class="sk">${skizze(t)}${t.typ ? detail(t.typ, t.einschlag) : ''}</div><div><h2>Tür ${esc(t.nr)} ${t.raum ? '· ' + esc(t.raum) : ''}</h2>
-      <p><b>${esc([t.typ, t.einschlag, t.anschlag].filter(Boolean).join(', '))}</b></p>
+      <p><b>${esc([t.typ, t.einschlag, t.anschlag, t.seite && 'Anschlag ' + t.seite].filter(Boolean).join(', '))}</b></p>
       <p>Lichtmass <b>${mm(r.B)} × ${mm(r.H)}</b> (Höhe ab Fertigboden) · Wandstärke <b>${mm(r.W)}</b></p>
       <table>${SPALTEN.slice(8).map((s, i) => z[i + 8] ? `<tr><th>${esc(s)}</th><td>${esc(z[i + 8])}</td></tr>` : '').join('')}</table></div></section>`; }).join('');
   w.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Türaufmass ${esc(a.nr)}</title>
@@ -600,7 +618,7 @@ function drucken(){
 }
 function teilen(){
   const text = `Türaufmass ${daten.auftrag.nr} ${daten.auftrag.titel || ''}\n` + aktiveTueren().map(t => { const r = auswerten(t);
-    return `${t.nr || '–'} ${t.raum || ''}: ${[t.typ, t.einschlag, t.anschlag].filter(Boolean).join(', ')} · ${mm(r.B)} × ${mm(r.H)} · Wand ${mm(r.W)}`; }).join('\n');
+    return `${t.nr || '–'} ${t.raum || ''}: ${[t.typ, t.einschlag, t.anschlag, t.seite && 'Anschlag ' + t.seite].filter(Boolean).join(', ')} · ${mm(r.B)} × ${mm(r.H)} · Wand ${mm(r.W)}`; }).join('\n');
   if (navigator.share) navigator.share({title: 'Türaufmass ' + daten.auftrag.nr, text}).catch(() => {});
   else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => alert('In die Zwischenablage kopiert.'));
 }
