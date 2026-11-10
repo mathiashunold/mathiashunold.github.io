@@ -286,20 +286,21 @@ function chip(t){
   return '<span class="chip ok">vollständig</span>';
 }
 // Detail: waagrechter Schnitt durch die linke Leibung – Wand (schraffiert), Rahmen/Zarge, Türblatt
-function detail(typ, einschlag){
+function detail(typ, einschlag){   // waagrechter Schnitt durch die Leibung; Rahmentüre/Blendrahmen nach Detail Mathias (10.11.): Rahmen und Blatt gleich dick, gefälzt, flächenbündig
   const ue = einschlag === 'mit Überschlag', holz = 'fill="#C58B3C" stroke="currentColor" stroke-width="1"';
-  let rahmen, fy, lx, extra = '';
-  if (typ === 'Rahmentüre') { fy = 15; lx = 63; rahmen = `<path d="M50 15 H62 V23 H68 V50 H50 Z" ${holz}/>`;
-    extra = '<path d="M50 60 H62 M50 56 v8 M62 56 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="66" y="64" font-size="9" fill="currentColor">ins Licht</text>'; }
-  else if (typ === 'Blendrahmen') { fy = 5; lx = 56; rahmen = `<path d="M12 5 H55 V13 H60 V15 H12 Z" ${holz}/>`;
-    extra = '<path d="M50 24 H55 M50 20 v8 M55 20 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="59" y="29" font-size="9" fill="currentColor">ins Licht</text>'; }
+  const falz = (x, y) => `<path d="M${x + 30} ${y} V${y + 13} H${x + 26} V${y + 15.6} H${x + 37.5} V${y + 20} H${x} V${y} Z" ${holz}/>`;   // Rahmen 30 × 20 mit Anschlag-Lippe und Dichtungsnut
+  const falzBlatt = (x, y) => `<path d="M120 ${y} H${x + 32} V${y + 13.5} H${x + 39.4} V${y + 20} H120 Z" fill="currentColor" opacity=".6"/>`;
+  const licht = (x1, x2, y) => `<path d="M${x1} ${y} H${x2} M${x1} ${y - 4} v8 M${x2} ${y - 4} v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="${x1 + 3}" y="${y + 13}" font-size="9" fill="currentColor">ins Licht</text>`;
+  let rahmen, fy, lx, extra = '', eigen = '';
+  if (typ === 'Rahmentüre') { fy = 15; lx = 82; rahmen = falz(50, 15); eigen = falzBlatt(50, 15); extra = licht(50, 87.5, 50); }
+  else if (typ === 'Blendrahmen') { fy = -5; lx = 57; rahmen = falz(25, -5); eigen = falzBlatt(25, -5); extra = licht(50, 62.5, 28); }
   else if (typ === 'Futter') { fy = 9; lx = 59; rahmen = `<path d="M34 9 H58 V17 H63 V30 H58 V71 H34 V65 H50 V15 H34 Z" ${holz}/>`; }
   else if (typ === 'Stahlzarge') { fy = 11; lx = 59; rahmen = '<polyline points="38,15 38,11 58,11 58,19 63,19 63,69 38,69 38,65" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>'; }
   else { fy = 15; lx = 67; rahmen = `<path d="M52 15 H66 V23 H72 V50 H52 Z" ${holz}/>`;
     extra = '<path d="M50 58 H52 M50 54 v8 M52 54 v8" stroke="currentColor" stroke-width="1.2" fill="none"/><text x="56" y="62" font-size="9" fill="currentColor">Luft</text>'; }
-  const blatt = `<rect x="${lx}" y="${fy}" width="${120 - lx}" height="8" fill="currentColor" opacity=".6"/>` +
+  const blatt = (eigen || `<rect x="${lx}" y="${fy}" width="${120 - lx}" height="8" fill="currentColor" opacity=".6"/>`) +
     (ue ? `<rect x="${lx - 9}" y="${fy - 6}" width="${129 - lx}" height="6" fill="currentColor" opacity=".6"/>` : '');
-  return `<svg viewBox="0 0 120 84" aria-hidden="true"><g transform="translate(0,8)">
+  return `<svg viewBox="0 0 120 90" aria-hidden="true"><g transform="translate(0,14)">
     <rect x="0" y="15" width="50" height="50" fill="currentColor" opacity=".16"/>
     <path d="M0 35 l20 -20 M0 55 l40 -40 M10 65 l40 -40 M30 65 l20 -20" stroke="currentColor" opacity=".35" fill="none"/>
     ${rahmen}${blatt}${extra}</g></svg>`;
