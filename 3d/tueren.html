@@ -486,6 +486,7 @@ function zeichneTuer(){
     </div>
     <div class="card"><h2 style="margin-top:0">Masse</h2>
       <div class="acts" style="margin-top:0"><button class="btn${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome auf Android')}</button></div>
+      <div id="glmInfo"></div>
       <p class="hint">Feld antippen und Mass eintippen (Enter = nächstes Feld) oder am Bosch messen – der Wert springt ins nächste leere Feld.</p>
       <div class="fortschritt">${[['Breite', 'b'], ['Höhe', 'h'], ['Wandstärke', 'w']].map(([n, g]) => `<span class="chip ${werte(t, g).length ? 'ok' : 'offen'}">${n} ${werte(t, g).length}/${g === 'b' ? 3 : 2}</span>`).join('')}</div>
       <div class="messbild" role="group" aria-label="Lichtmasse der Öffnung">
@@ -539,7 +540,7 @@ function zeichneTuer(){
   $('#zurueck').onclick = () => { S.ansicht = 'auftrag'; zeichne(); };
   $('#weiter').onclick = neueTuer;
   $('#loeschen').onclick = () => { if (confirm('Tür ' + (t.nr || '') + ' löschen?')) { aendern(t, {geloescht: true}); S.ansicht = 'auftrag'; zeichne(); } };
-  $('#glm').onclick = () => GLM.verbinden();
+  $('#glm').onclick = () => GLM.verbinden(); glmInfo();
   $('#app').querySelectorAll('[data-seg]').forEach(g => g.onclick = ev => {
     const b = ev.target.closest('button'); if (!b) return; const f = g.dataset.seg, v = b.dataset.v;
     if (f === 'anf') { const a = new Set(t.anf || []); a.has(v) ? a.delete(v) : a.add(v); aendern(t, {anf: [...a]}); }
@@ -622,7 +623,15 @@ function zeichneMitFokus(){ const id = S.fokus || (document.activeElement && doc
 function aendern(t, w){ Object.assign(t, w, {zeit: jetzt()}); merkeIndex(); speichern(); }
 
 // Bosch-Messwert → aktives Feld, danach nächstes leeres Pflichtfeld
-GLM.beiStatus = () => { const b = $('#glm'); if (b) { b.textContent = GLM.text(); b.classList.toggle('primary', GLM.status === 'ok'); } };
+GLM.beiStatus = () => { const b = $('#glm'); if (b) { b.textContent = GLM.text(); b.classList.toggle('primary', GLM.status === 'ok'); } glmInfo(); };
+function glmInfo(){   // Hinweis zum letzten Verbindungsfehler + Ausweg «Alle Geräte zeigen» + Diagnose
+  const el = $('#glmInfo'); if (!el) return; const h = GLM.hinweis();
+  el.innerHTML = h ? `<p class="hint" role="status" style="color:var(--ink)">${esc(h)}</p><div class="acts" style="margin-top:6px"><button class="btn" type="button" id="glmAlle">Alle Geräte zeigen</button><button class="btn" type="button" id="glmDiag">Diagnose kopieren</button></div>` : '';
+  if (!h) return;
+  $('#glmAlle').onclick = () => GLM.verbinden(true);
+  $('#glmDiag').onclick = ev => { const t = 'Bosch-Diagnose\n' + GLM.diagnose();
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { ev.target.textContent = 'Kopiert'; }, () => prompt('Diagnose (markieren und kopieren):', t)); };
+}
 GLM.beiWert = v => {
   const t = S.ansicht === 'tuer' && aktuelleTuer(); if (!t) return;
   const k = S.aktivFeld || (MASSE.find(m => m.g !== 'opt' && (t.masse[m.k] == null || t.masse[m.k] === '')) || {}).k; if (!k) return;

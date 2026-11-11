@@ -104,7 +104,7 @@ const blueOk = () => !!(navigator.bluetooth && navigator.bluetooth.requestDevice
 async function glmVerbinden(){
   try {
     glm.status = 'suche'; zeichne();
-    const dev = await navigator.bluetooth.requestDevice({filters:[{namePrefix:'GLM'}, {namePrefix:'Bosch'}], optionalServices:[GLM_SVC]});
+    const dev = await navigator.bluetooth.requestDevice({filters:['Bosch','BOSCH','bosch','GLM','PLR'].map(p => ({namePrefix:p})).concat([{services:[GLM_SVC]}]), optionalServices:[GLM_SVC]});
     dev.addEventListener('gattserverdisconnected', ()=> { glm.status = 'getrennt'; glm.ch = null; zeichne(); });
     const server = await dev.gatt.connect();
     const svc = await server.getPrimaryService(GLM_SVC);
@@ -193,7 +193,7 @@ function setupDom(){
 }
 function glmKnopf(){
   if (!blueOk()) return '<span class="ks">Bosch: Bluetooth nur mit Chrome auf Android</span>';
-  const t = {aus:'Bosch verbinden', suche:'Suche Bosch …', ok:'GLM 50 C verbunden', getrennt:'Bosch neu verbinden', fehler:'Bosch: Fehler – nochmals'}[glm.status];
+  const t = {aus:'Bosch verbinden', suche:'Suche Bosch …', ok:'GLM 50 C verbunden', getrennt:'Bosch neu verbinden', fehler:'Bosch: Fehler – nochmals' + (glm.fehler ? ' (' + String(glm.fehler).slice(0, 60) + ')' : '')}[glm.status];
   return `<button class="glm${glm.status === 'ok' ? ' kp' : ''}" data-a="glm">${esc(t)}</button>`;
 }
 function zeile(m){
