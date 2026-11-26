@@ -98,9 +98,9 @@ table.masse .diff.gross{color:var(--warn);font-weight:700}
 .eingabe .acts{margin-top:8px}.eingabe .acts .btn{flex:1}
 .schiebeleiste{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:41;display:flex;gap:10px;align-items:center;background:var(--surface);border:2px solid var(--accent);border-radius:14px;padding:6px 6px 6px 14px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:15px}
 .layout.ohneListe{grid-template-columns:1fr}.layout.ohneListe .plan svg{height:calc(100vh - 190px)}
-.gross{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
-.gross img{max-width:100%;max-height:calc(100% - 90px);object-fit:contain;border-radius:8px}.gross .acts{margin:0;justify-content:center}
-.gross p{color:#fff;margin:0;font-weight:600}
+.fotogross{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
+.fotogross img{max-width:100%;max-height:calc(100% - 90px);object-fit:contain;border-radius:8px}.fotogross .acts{margin:0;justify-content:center}
+.fotogross p{color:#fff;margin:0;font-weight:600}
 .fotoleiste{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.fotoleiste button{padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;position:relative}
 .fotoleiste img{width:84px;height:84px;object-fit:cover;border-radius:8px;display:block}.fotoleiste span{position:absolute;left:4px;top:4px;background:#1C5FD1;color:#fff;font-size:12px;font-weight:700;border-radius:6px;padding:0 5px}
 </style>
@@ -138,8 +138,12 @@ const blaetterVon = vid => (daten ? daten.blaetter : []).filter(b => !b.weg && b
 const vorlage = id => daten && daten.vorlagen.find(v => v.id === id);
 const blatt = id => daten && daten.blaetter.find(b => b.id === id);
 // Masslinien eines Plans; mit Blatt zusätzlich die auf der Baustelle ergänzten Linien dieses Blatts (b.linien, nur dieses Geschoss)
-const linienVon = (v, b) => { const L = (v.linien || []).filter(l => !l.weg); const E = b ? (b.linien || []).filter(l => !l.weg) : [];
-  E.forEach((l, i) => { l.nr = L.length + i + 1; }); return E.length ? L.concat(E) : L; };
+// b.anp[lid] = Anpassung einer Plan-Linie nur für dieses Blatt (nach dem Aufmass am PC: weg = ausgeblendet, x1..ab = verschoben)
+const linienVon = (v, b) => { const A = (b && b.anp) || {};
+  const L = (v.linien || []).filter(l => !l.weg && !(A[l.id] && A[l.id].weg)).map(l => { const a = A[l.id]; return a && a.x1 != null ? Object.assign({}, l, {x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, ab: a.ab}) : l; });
+  const E = b ? (b.linien || []).filter(l => !l.weg) : [];
+  L.forEach((l, i) => { l.nr = i + 1; }); E.forEach((l, i) => { l.nr = L.length + i + 1; }); return E.length ? L.concat(E) : L; };
+const ausgeblendet = (v, b) => (v.linien || []).filter(l => !l.weg && b && b.anp && b.anp[l.id] && b.anp[l.id].weg);
 const zusatzLinie = (b, lid) => !!(b && (b.linien || []).some(x => x.id === lid));
 
 // ---------- GitHub (privates Repo, Branch «kontrolle») ----------
@@ -184,6 +188,8 @@ function mischeBlatt(a, b){
   n.fotos = Object.values(fo).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''));
   const ha = {}; for (const q of [a, b]) for (const [k, h] of Object.entries(q.hand || {})) ha[k] = neuer(ha[k], h);
   n.hand = ha;
+  const an = {}; for (const q of [a, b]) for (const [k, x] of Object.entries(q.anp || {})) an[k] = neuer(an[k], x);
+  n.anp = an;
   const zl = {}; for (const q of [a, b]) for (const l of q.linien || []) zl[l.id] = neuer(zl[l.id], l);
   n.linien = Object.values(zl).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || '')); return n;
 }
@@ -752,6 +758,7 @@ function zeichneBlatt(){
         <button class="btn klein" type="button" data-m="ansehen" aria-pressed="${S.modus !== 'stift' && S.modus !== 'foto'}">Masse eintragen</button>
         <button class="btn klein" type="button" data-m="stift" aria-pressed="${S.modus === 'stift'}">Notiz-Stift</button>
         <button class="btn klein" type="button" data-m="neu" aria-pressed="${S.modus === 'neu'}">+ Masslinie</button>
+        <button class="btn klein" type="button" data-m="bearb" aria-pressed="${S.modus === 'bearb'}">Linien bearbeiten</button>
         <button class="btn klein" type="button" data-m="foto" aria-pressed="${S.modus === 'foto'}">Foto</button>
         <input type="file" id="kamera" accept="image/*" capture="environment" hidden>
         ${S.modus === 'stift' ? `<button class="btn klein" type="button" data-f="${ROT}" aria-pressed="${S.farbe === ROT}" style="color:${ROT}">● Rot</button><button class="btn klein" type="button" data-f="#1C5FD1" aria-pressed="${S.farbe === '#1C5FD1'}" style="color:#1C5FD1">● Blau</button><button class="btn klein" type="button" data-f="#111111" aria-pressed="${S.farbe === '#111111'}">● Schwarz</button>
@@ -762,6 +769,7 @@ function zeichneBlatt(){
       </div>
       <div class="plan"><svg id="svg" class="${S.modus === 'stift' ? '' : 'pan'}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} ${esc(b.geschoss)}"></svg></div>
       <p class="hint">${S.modus === 'stift' ? 'Mit Stift oder Finger direkt auf den Plan schreiben (z. B. Masse, Notizen). Mit zwei Fingern zoomen. Erkennt das Tablet einen Stift, schiebt der Finger den Plan.'
+        : S.modus === 'bearb' ? 'Nachbearbeiten (nur dieses Blatt): Linie anklicken → Griffe ziehen (Endpunkte, blaues Quadrat = Abstand), oben «Löschen» oder «Original». Masse bleiben erhalten.'
         : S.modus === 'neu' ? 'Neue Masslinie: von Kante zu Kante ziehen (rastet waagrecht/senkrecht ein). Danach öffnet sich die Eingabe für Bezeichnung und Mass. Gilt nur für dieses Blatt (Geschoss).'
         : S.modus === 'foto' ? 'Foto: auf die Stelle im Plan tippen, wo fotografiert wird – die Kamera öffnet sich. Das Foto erscheint als blaues Kamera-Symbol (F1, F2 …); antippen zum Ansehen.'
         : 'Ausmass: Mass antippen → Zahl eintippen oder mit dem Stift ins Feld schreiben (Stift direkt aufs Feld öffnet das Schreibfeld). Die Linien sind hier fest. Blaues Kamera-Symbol = Foto. Zwei Finger = zoomen/schieben.'}</p>
@@ -775,6 +783,7 @@ function zeichneBlatt(){
             <td class="diff${d != null && Math.abs(d) > TOL ? ' gross' : ''}" id="d_${l.id}">${d != null ? (d > 0 ? '+' : '') + mmTxt(d) : ''}</td></tr>`; }).join('')}</table>`
         : '<p class="hint">Dieser Plan hat noch keine Masslinien – am PC unter «Masslinien ziehen» anlegen.</p>'}</div>
       <h2>Fotos</h2>
+      ${ausgeblendet(v, b).length ? `<h2>Ausgeblendete Linien</h2><div class="acts" style="margin-top:0">${ausgeblendet(v, b).map(l => `<button class="btn klein" type="button" data-zeig="${l.id}">↺ ${esc(l.text || 'Linie')}${b.werte[l.id] && b.werte[l.id].v != null ? ' (' + mmTxt(b.werte[l.id].v) + ')' : ''}</button>`).join('')}</div>` : ''}
       <div class="fotoleiste" id="fotoleiste">${fotosVon(b).length ? '' : '<p class="hint" style="margin:0">Noch keine Fotos. «Foto» wählen und in den Plan tippen.</p>'}</div>
       <div class="acts"><button class="btn" type="button" id="fotoOhne">Foto ohne Ort</button></div>
       <label for="notiz">Notiz</label><textarea class="field" id="notiz" rows="3" style="min-height:72px">${esc(b.notiz || '')}</textarea>
@@ -784,21 +793,24 @@ function zeichneBlatt(){
   const svg = $('#svg'); let url = bildUrls[v.bild] || '', strich = null, stiftDa = S.stiftDa || false, neuZug = null, griffZug = null;
   const fangB = (a, q) => { const dx = q.x - a.x, dy = q.y - a.y, w = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90; return (w < 5 || w > 85) ? (Math.abs(dx) > Math.abs(dy) ? {x: q.x, y: a.y} : {x: a.x, y: q.y}) : q; };
   const gpB = () => { const vb = S.vb[key]; return Math.max(vb.w / Math.max(1, svg.clientWidth), vb.h / Math.max(1, svg.clientHeight)); };
-  const malen = () => { svg.innerHTML = planInhalt(v, b, {modus: 'blatt', aktiv: S.aktiv, griffe: zusatzLinie(b, S.aktiv) ? S.aktiv : null, gp: gpB(), url, vorschau: strich ? `<polyline points="${strich.p.join(' ')}" fill="none" stroke="${strich.f}" stroke-width="${Math.max(v.w, v.h) / 100 * strich.d}" stroke-linecap="round" stroke-linejoin="round"/>` : (neuZug ? `<line x1="${neuZug.a.x}" y1="${neuZug.a.y}" x2="${neuZug.p.x}" y2="${neuZug.p.y}" stroke="${ROT}" stroke-width="${fGr(v) * .08}" stroke-dasharray="${fGr(v) * .5}"/>` : '')}); };
+  const malen = () => { svg.innerHTML = planInhalt(v, b, {modus: 'blatt', aktiv: S.aktiv, griffe: S.modus === 'bearb' ? S.bsel : (zusatzLinie(b, S.aktiv) ? S.aktiv : null), gp: gpB(), url, vorschau: strich ? `<polyline points="${strich.p.join(' ')}" fill="none" stroke="${strich.f}" stroke-width="${Math.max(v.w, v.h) / 100 * strich.d}" stroke-linecap="round" stroke-linejoin="round"/>` : (neuZug ? `<line x1="${neuZug.a.x}" y1="${neuZug.a.y}" x2="${neuZug.p.x}" y2="${neuZug.p.y}" stroke="${ROT}" stroke-width="${fGr(v) * .08}" stroke-dasharray="${fGr(v) * .5}"/>` : '')}); };
   setzeVb(svg, key); malen(); bildUrl(v.bild).then(u => { url = u; malen(); });
   zoomVerdrahten(svg, key, v);
   const fokus = id => { S.aktiv = id; document.querySelectorAll('tr[data-zl]').forEach(r => r.classList.toggle('aktiv', r.dataset.zl === id)); malen();
     const i = $('#ist_' + id); if (i) { i.focus({preventScroll: true}); i.scrollIntoView({block: 'nearest'}); } };
   planSteuerung(svg, key, {
     stift: () => stiftDa,   // Finger schiebt, sobald ein Stift erkannt wurde (Handballen)
-    nachZoom(){ if (zusatzLinie(b, S.aktiv)) malen(); },
+    nachZoom(){ if (zusatzLinie(b, S.aktiv) || S.bsel) malen(); },
     start(e, p){
       if (e.pointerType === 'pen') stiftDa = S.stiftDa = true;
       const gr = e.target.closest && e.target.closest('.griff');   // Zusatzlinie verschieben: Endpunkte (Kreise) oder Masslinie (Quadrat)
-      if (gr && e.button === 0) { const l = (b.linien || []).find(x => x.id === gr.dataset.l); if (l) { griffZug = {l, e: gr.dataset.e}; return true; } }
+      if (gr && e.button === 0) { const id = gr.dataset.l; let l = (b.linien || []).find(x => x.id === id);
+        if (!l && S.modus === 'bearb') { const eff = linienVon(v, b).find(x => x.id === id); if (eff) { b.anp = b.anp || {};   // Plan-Linie: Verschiebung nur für dieses Blatt
+          l = b.anp[id] = Object.assign({}, b.anp[id], {x1: eff.x1, y1: eff.y1, x2: eff.x2, y2: eff.y2, ab: eff.ab || 0, weg: false}); } }
+        if (l) { griffZug = {l, e: gr.dataset.e}; return true; } }
       const feld = e.target.closest && e.target.closest('.ml');   // Stift direkt auf ein Mass → Schreibfeld öffnen
       if (S.modus === 'neu' && e.button === 0 && !(e.pointerType === 'touch' && stiftDa)) { neuZug = {a: p, p}; return true; }
-      if (e.pointerType === 'pen' && feld && S.modus !== 'foto') { eingabe(b, v, feld.dataset.l, true, malen); return true; }
+      if (e.pointerType === 'pen' && feld && S.modus !== 'foto' && S.modus !== 'bearb') { eingabe(b, v, feld.dataset.l, true, malen); return true; }
       if (S.modus !== 'stift' || e.button !== 0) return false;
       strich = {id: neueId(), f: S.farbe, d: dicke().n, p: [Math.round(p.x), Math.round(p.y)], erstellt: jetzt(), zeit: jetzt()}; return true;
     },
@@ -824,9 +836,28 @@ function zeichneBlatt(){
     tipp(e, p, ziel){
       const t = ziel && ziel.closest ? ziel : e.target, fo = t.closest && t.closest('.foto'); if (fo) return grossbild(b, fo.dataset.foto);
       if (S.modus === 'foto') { S.fotoOrt = {x: Math.round(p.x), y: Math.round(p.y)}; $('#kamera').click(); return; }   // Kamera öffnet (Tippen = Nutzeraktion)
-      const ml = t.closest && t.closest('.ml'); if (ml) { if (listeZeigen() && !TOUCH) fokus(ml.dataset.l); else eingabe(b, v, ml.dataset.l, e.pointerType === 'pen', malen); } }
+      const ml = t.closest && t.closest('.ml');
+      if (S.modus === 'bearb') { S.bsel = ml ? ml.dataset.l : null; malen(); return bearbLeiste(); }
+      if (ml) { if (listeZeigen() && !TOUCH) fokus(ml.dataset.l); else eingabe(b, v, ml.dataset.l, e.pointerType === 'pen', malen); } }
   });
-  document.querySelectorAll('[data-m]').forEach(k => k.onclick = () => { S.modus = k.dataset.m; zeichneBlatt(); });
+  document.querySelectorAll('[data-m]').forEach(k => k.onclick = () => { S.modus = k.dataset.m; S.bsel = null; eingabeZu(); zeichneBlatt(); });
+  document.querySelectorAll('[data-zeig]').forEach(k => k.onclick = () => { b.anp[k.dataset.zeig] = Object.assign({}, b.anp[k.dataset.zeig], {weg: false, zeit: jetzt()}); b.zeit = jetzt(); speichern(); zeichneBlatt(); });
+  // Leiste oben im Bearbeiten-Modus: gewählte Linie löschen / auf Original zurücksetzen
+  function bearbLeiste(){
+    document.querySelectorAll('.schiebeleiste').forEach(x => x.remove());
+    const id = S.bsel; if (S.modus !== 'bearb' || !id) return; const l = linienVon(v, b).find(x => x.id === id); if (!l) return;
+    const zus = zusatzLinie(b, id), verschoben = !zus && b.anp && b.anp[id] && b.anp[id].x1 != null;
+    const k = document.createElement('div'); k.className = 'schiebeleiste';
+    k.innerHTML = `<span><b>${esc(l.text || 'Linie ' + l.nr)}</b> – Griffe ziehen zum Verschieben</span><button class="btn" type="button" data-b="weg">Löschen</button>${verschoben ? '<button class="btn" type="button" data-b="orig">Original</button>' : ''}<button class="btn primary" type="button" data-b="ok">Fertig</button>`;
+    document.body.appendChild(k);
+    k.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.b; if (!a) return;
+      if (a === 'weg') { if (!confirm('Linie «' + (l.text || 'Linie ' + l.nr) + '» auf diesem Blatt löschen?' + (zus ? '' : ' (Im Plan bleibt sie für die anderen Geschosse.)'))) return;
+        if (zus) { const o = b.linien.find(x => x.id === id); o.weg = true; o.zeit = jetzt(); } else { b.anp = b.anp || {}; b.anp[id] = Object.assign({}, b.anp[id], {weg: true, zeit: jetzt()}); }
+        b.zeit = jetzt(); speichern(); S.bsel = null; k.remove(); return zeichneBlatt(); }
+      if (a === 'orig') { b.anp[id] = {weg: false, zeit: jetzt()}; b.zeit = jetzt(); speichern(); malen(); return bearbLeiste(); }
+      S.bsel = null; k.remove(); malen(); };
+  }
+  bearbLeiste();
   document.querySelectorAll('[data-f]').forEach(k => k.onclick = () => { S.farbe = k.dataset.f; zeichneBlatt(); });
   dickeVerdrahten(null, $('.werkzeuge'));
   if ($('#rueck')) $('#rueck').onclick = () => { const s = (b.ink || []).filter(x => !x.weg).slice(-1)[0]; if (!s) return; s.weg = true; s.zeit = b.zeit = jetzt(); speichern(); malen(); };
@@ -938,7 +969,7 @@ function grossbild(b, fid){
   bildUrl(f.k).then(u => {
     const blob = bildBlobs[f.k], v = vorlage(b.vorlage), name = ((v ? v.name : 'Plan') + '_' + b.geschoss + '_F' + (i + 1) + '.jpg').replace(/[^\wäöüÄÖÜ.-]+/g, '_');
     const datei = blob ? new File([blob], name, {type: 'image/jpeg'}) : null, teilen = !!(datei && navigator.canShare && navigator.canShare({files: [datei]}));
-    const d = document.createElement('div'); d.className = 'gross'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Foto F' + (i + 1));
+    const d = document.createElement('div'); d.className = 'fotogross'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Foto F' + (i + 1));
     d.innerHTML = `<p>F${i + 1} · ${esc(b.geschoss)}${f.x == null ? ' · ohne Ort' : ''}</p>${u ? `<img src="${u}" alt="Foto F${i + 1}">` : '<p>Foto nicht geladen (offline?)</p>'}
       <div class="acts">${teilen ? '<button class="btn primary" type="button" data-a="teilen">Teilen</button>' : ''}${blob ? '<button class="btn" type="button" data-a="speichern">Speichern</button>' : ''}
       <button class="btn" type="button" data-a="weg">Löschen</button><button class="btn" type="button" data-a="zu">Schliessen</button></div>`;
