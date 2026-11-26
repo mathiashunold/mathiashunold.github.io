@@ -261,6 +261,7 @@ function nummeriere(v){ linienVon(v).forEach((l, i) => { l.nr = i + 1; }); }
 const A3B = 1190.55 - 44, A3H = 841.89 - 44 - 30;
 const kastenFaktor = () => (daten && daten.auftrag && daten.auftrag.gr) || 1;
 function fGr(v){ return 9 * kastenFaktor() / Math.min(A3B / v.w, A3H / v.h); }
+const strichStil = () => !!(daten && daten.auftrag && daten.auftrag.stil === 'strich');   // Feld für die Zahl: Kästchen (Standard) oder Schreibstrich
 function kastenAendern(f){ daten.auftrag.gr = Math.round(Math.min(2.5, Math.max(.5, kastenFaktor() * f)) * 100) / 100; daten.auftrag.zeit = jetzt(); speichern(); }
 function geo(v, l, txt){
   const F = fGr(v), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
@@ -295,7 +296,7 @@ function planInhalt(v, b, opt){
     s += `<g class="ml" data-l="${l.id}">
       <line x1="${G.a1x}" y1="${G.a1y}" x2="${G.a2x}" y2="${G.a2y}" stroke="transparent" stroke-width="${F * 1.4}"/>
       ${G.segs.map(q => `<line x1="${q[0]}" y1="${q[1]}" x2="${q[2]}" y2="${q[3]}" stroke="${farbe}" stroke-width="${q[5] && sel ? q[4] * 2 : q[4]}"/>`).join('')}
-      <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})"><rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
+      <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})">${strichStil() ? `<rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" fill="#fff" fill-opacity=".75"/><line x1="${bx}" y1="${my + G.bh / 2}" x2="${bx + bw}" y2="${my + G.bh / 2}" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw * 1.4}"/>` : `<rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>`}
       <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${G.fs}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text></g>
       ${G.vor ? `<circle cx="${l.x1}" cy="${l.y1}" r="${F * .8}" fill="transparent"/><text x="${G.vor.x}" y="${G.vor.y + F * .38}" font-size="${G.fs}" font-weight="700" fill="${farbe}" font-family="Arial,sans-serif">${G.vor.t}</text>` : ''}
     </g>`;
@@ -407,6 +408,8 @@ function zeichneAuftrag(){
     ${aktiveVorlagen().length ? `<div class="card"><h2 style="margin-top:0">Alle Blätter</h2>
       <div class="acts" style="align-items:center"><span style="font-weight:600">Kästchen und Zahlen (alle Pläne, PDF und Tablet):</span>
         <button class="btn klein" type="button" id="kk" aria-label="Kästchen kleiner">−</button><b id="kw">${Math.round(kastenFaktor() * 100)} %</b><button class="btn klein" type="button" id="kg" aria-label="Kästchen grösser">+</button></div>
+      <div class="acts" style="align-items:center"><span style="font-weight:600">Feld für das Mass:</span>
+        <button class="btn klein" type="button" data-stil="kasten" aria-pressed="${!strichStil()}">▭ Kästchen</button><button class="btn klein" type="button" data-stil="strich" aria-pressed="${strichStil()}">＿ Strich</button></div>
       <div class="acts">
       <button class="btn" type="button" id="alleLeer">Alle leer (PDF)</button><button class="btn" type="button" id="alleVoll">Alle mit Massen (PDF)</button>
       <button class="btn" type="button" id="csv">Masse als Excel/CSV</button></div></div>` : ''}
@@ -424,6 +427,7 @@ function zeichneAuftrag(){
   const plus = vid => { const i = document.querySelector(`[data-gneu="${vid}"]`), g = i.value.trim(); if (!g) return i.focus(); neuesBlatt(vid, g); merkeIndex(); speichern(); zeichne(); };
   document.querySelectorAll('[data-gplus]').forEach(b => b.onclick = () => plus(b.dataset.gplus));
   document.querySelectorAll('[data-gneu]').forEach(i => i.onkeydown = e => { if (e.key === 'Enter') plus(i.dataset.gneu); });
+  document.querySelectorAll('[data-stil]').forEach(k => k.onclick = () => { daten.auftrag.stil = k.dataset.stil; daten.auftrag.zeit = jetzt(); speichern(); zeichneAuftrag(); });
   if ($('#kk')) { const k = f => { kastenAendern(f); $('#kw').textContent = Math.round(kastenFaktor() * 100) + ' %'; }; $('#kk').onclick = () => k(1 / 1.1); $('#kg').onclick = () => k(1.1); }
   if ($('#alleLeer')) { $('#alleLeer').onclick = () => drucken(alleBlaetter(), true); $('#alleVoll').onclick = () => drucken(alleBlaetter(), false); $('#csv').onclick = csv; }
 }
@@ -874,7 +878,10 @@ async function pdfSpeichern(liste, leer){
       const txt = sicher(fett, beschriftung(v, b, l, {modus: 'druck', leer})), G = geo(v, l, txt);
       for (const q of G.segs) page.drawLine({start: {x: X(q[0]), y: Y(q[1])}, end: {x: X(q[2]), y: Y(q[3])}, thickness: Math.max(q[5] ? .5 : .35, q[4] * k), color: ROTp});   // Druck: mind. 0,18 mm bzw. 0,12 mm
       const th = -G.wi * Math.PI / 180, c = Math.cos(th), s2 = Math.sin(th), cx = X(G.mx), cy = Y(G.my), hw = G.bw * k / 2, hh = G.bh * k / 2;
-      page.drawRectangle({x: cx + (-hw) * c - (-hh) * s2, y: cy + (-hw) * s2 + (-hh) * c, width: hw * 2, height: hh * 2, rotate: degrees(-G.wi),
+      if (strichStil()) {   // Schreiblinie statt Kästchen: weisser Grund ohne Rand + Strich unten
+        page.drawRectangle({x: cx + (-hw) * c - (-hh) * s2, y: cy + (-hw) * s2 + (-hh) * c, width: hw * 2, height: hh * 2, rotate: degrees(-G.wi), color: rgb(1, 1, 1), opacity: .75});
+        page.drawLine({start: {x: cx + (-hw) * c - (-hh) * s2, y: cy + (-hw) * s2 + (-hh) * c}, end: {x: cx + hw * c - (-hh) * s2, y: cy + hw * s2 + (-hh) * c}, thickness: Math.max(.5, G.sw * 1.4 * k), color: ROTp});
+      } else page.drawRectangle({x: cx + (-hw) * c - (-hh) * s2, y: cy + (-hw) * s2 + (-hh) * c, width: hw * 2, height: hh * 2, rotate: degrees(-G.wi),
         color: rgb(1, 1, 1), opacity: .93, borderColor: ROTp, borderWidth: Math.max(.25, G.sw * k)});
       if (txt) { const fs = G.fs * k, tw = fett.widthOfTextAtSize(txt, fs), lx = -tw / 2, ly = -fs * .36;
         page.drawText(txt, {x: cx + lx * c - ly * s2, y: cy + lx * s2 + ly * c, size: fs, font: fett, rotate: degrees(-G.wi), color: rgb(.07, .07, .07)}); }
