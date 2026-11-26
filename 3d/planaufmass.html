@@ -256,8 +256,14 @@ function nummeriere(v){ linienVon(v).forEach((l, i) => { l.nr = i + 1; }); }
 
 // ---------- Plan zeichnen (SVG in Bildpunkten des Plans) – gemeinsam für Bearbeiten, Blatt und Druck ----------
 // Geometrie einer Masslinie in Bildpunkten: Messpunkte P1/P2 bleiben, die Masslinie liegt um «ab» (entlang n) daneben, Hilfslinien verbinden beide
+// Grösse von Kästchen und Zahlen (F, Bildpunkte): so gewählt, dass im A3-PDF jeder Plan gleich grosse Kästchen hat (9 pt × Faktor),
+// Faktor gilt für den ganzen Auftrag (Wunsch Mathias 26.11.: «Boxen bei allen PDF einheitlich grösser oder kleiner»)
+const A3B = 1190.55 - 44, A3H = 841.89 - 44 - 30;
+const kastenFaktor = () => (daten && daten.auftrag && daten.auftrag.gr) || 1;
+function fGr(v){ return 9 * kastenFaktor() / Math.min(A3B / v.w, A3H / v.h); }
+function kastenAendern(f){ daten.auftrag.gr = Math.round(Math.min(2.5, Math.max(.5, kastenFaktor() * f)) * 100) / 100; daten.auftrag.zeit = jetzt(); speichern(); }
 function geo(v, l, txt){
-  const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
+  const F = fGr(v), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
   if (l.art === 'h') {   // Höhenangabe im Grundriss (Wunsch Mathias 26.11.): Kreuz am Messpunkt, «H:» und Kästchen daneben
     const c = F * .35, bw = Math.max(F * 3.6, ((txt || '').length * .58 + 1) * F), x0 = l.x1 + F * .6;
     return {F, sw, segs: [[l.x1 - c, l.y1 - c, l.x1 + c, l.y1 + c, sw * 1.4], [l.x1 - c, l.y1 + c, l.x1 + c, l.y1 - c, sw * 1.4]], a1x: l.x1, a1y: l.y1, a2x: l.x1, a2y: l.y1,
@@ -281,7 +287,7 @@ function beschriftung(v, b, l, opt){
   return opt.modus === 'vorlage' ? (so != null ? '≈ ' + so : '') : (opt.leer ? '' : wert);
 }
 function planInhalt(v, b, opt){
-  const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = Math.max(1.5, F * .035);
+  const F = fGr(v), sw = Math.max(1.5, F * .035);
   let s = opt.url ? `<image href="${opt.url}" x="0" y="0" width="${v.w}" height="${v.h}"/>` : `<rect width="${v.w}" height="${v.h}" fill="#fff"/>`;
   for (const l of linienVon(v)) {
     const txt = beschriftung(v, b, l, opt), G = geo(v, l, txt), sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
@@ -398,7 +404,10 @@ function zeichneAuftrag(){
           <div class="blaetter">${bl.map(b => { const p = fortschritt(b); return `<button class="btn${p.g && p.g === p.n ? ' primary' : ''}" type="button" data-blatt="${b.id}">${esc(b.geschoss)} <small>${p.g}/${p.n}</small></button>`; }).join('') || '<span class="hint">Noch keine Blätter.</span>'}</div>
           <div class="acts"><input class="field" data-gneu="${v.id}" placeholder="z. B. 2. OG" style="flex:1;min-width:120px"><button class="btn" type="button" data-gplus="${v.id}">+ Blatt</button></div>
         </div></div>`; }).join('')}
-    ${aktiveVorlagen().length ? `<div class="card"><h2 style="margin-top:0">Alle Blätter</h2><div class="acts">
+    ${aktiveVorlagen().length ? `<div class="card"><h2 style="margin-top:0">Alle Blätter</h2>
+      <div class="acts" style="align-items:center"><span style="font-weight:600">Kästchen und Zahlen (alle Pläne, PDF und Tablet):</span>
+        <button class="btn klein" type="button" id="kk" aria-label="Kästchen kleiner">−</button><b id="kw">${Math.round(kastenFaktor() * 100)} %</b><button class="btn klein" type="button" id="kg" aria-label="Kästchen grösser">+</button></div>
+      <div class="acts">
       <button class="btn" type="button" id="alleLeer">Alle leer (PDF)</button><button class="btn" type="button" id="alleVoll">Alle mit Massen (PDF)</button>
       <button class="btn" type="button" id="csv">Masse als Excel/CSV</button></div></div>` : ''}
     <p class="sync" id="sync">${esc(S.sync)}</p>`;
@@ -415,6 +424,7 @@ function zeichneAuftrag(){
   const plus = vid => { const i = document.querySelector(`[data-gneu="${vid}"]`), g = i.value.trim(); if (!g) return i.focus(); neuesBlatt(vid, g); merkeIndex(); speichern(); zeichne(); };
   document.querySelectorAll('[data-gplus]').forEach(b => b.onclick = () => plus(b.dataset.gplus));
   document.querySelectorAll('[data-gneu]').forEach(i => i.onkeydown = e => { if (e.key === 'Enter') plus(i.dataset.gneu); });
+  if ($('#kk')) { const k = f => { kastenAendern(f); $('#kw').textContent = Math.round(kastenFaktor() * 100) + ' %'; }; $('#kk').onclick = () => k(1 / 1.1); $('#kg').onclick = () => k(1.1); }
   if ($('#alleLeer')) { $('#alleLeer').onclick = () => drucken(alleBlaetter(), true); $('#alleVoll').onclick = () => drucken(alleBlaetter(), false); $('#csv').onclick = csv; }
 }
 const alleBlaetter = () => aktiveVorlagen().flatMap(v => blaetterVon(v.id));
@@ -548,7 +558,7 @@ function zeichneVorlage(){
         <button class="btn klein" type="button" data-m="hoehe" aria-pressed="${S.modus === 'hoehe'}">Höhe H:</button>
         <button class="btn klein" type="button" data-m="kalib" aria-pressed="${S.modus === 'kalib'}">Massstab einmessen</button>
         <span class="trenner"></span>${zoomKnoepfe()}<span class="trenner"></span>
-        <button class="btn klein" type="button" id="grm" aria-label="Beschriftung kleiner">A−</button><button class="btn klein" type="button" id="grp" aria-label="Beschriftung grösser">A+</button>
+        <button class="btn klein" type="button" id="grm" aria-label="Kästchen kleiner (alle Pläne)">A−</button><span class="hint" style="margin:0" id="grw">${Math.round(kastenFaktor() * 100)} %</span><button class="btn klein" type="button" id="grp" aria-label="Kästchen grösser (alle Pläne)">A+</button>
       </div>
       <div class="plan"><svg id="svg" class="${S.modus === 'pan' ? 'pan' : ''}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} mit Masslinien"></svg></div>
       <p class="hint">${S.modus === 'kalib' ? 'Eine Linie über ein bekanntes Mass ziehen (z. B. Bemassung 2.82 im Plan) und das Mass in mm eingeben.'
@@ -654,8 +664,8 @@ function zeichneVorlage(){
   });
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.modus = b.dataset.m; S.abWahl = null;
     const nurLinien = linienVon(v).filter(x => x.art !== 'h'); if (S.modus === 'kette' && !nurLinien.some(x => x.id === S.ketteVon)) S.ketteVon = (nurLinien.find(x => x.id === S.sel) || nurLinien.slice(-1)[0] || {}).id; zeichneVorlage(); });
-  $('#grm').onclick = () => { v.gr = Math.max(.4, (v.gr || 1) / 1.2); v.zeit = jetzt(); speichern(); malen(); };
-  $('#grp').onclick = () => { v.gr = Math.min(3, (v.gr || 1) * 1.2); v.zeit = jetzt(); speichern(); malen(); };
+  const gr = f => { kastenAendern(f); $('#grw').textContent = Math.round(kastenFaktor() * 100) + ' %'; malen(); };
+  $('#grm').onclick = () => gr(1 / 1.1); $('#grp').onclick = () => gr(1.1);
   $('#zurueck').onclick = $('#fertig').onclick = () => { S.ansicht = 'auftrag'; S.sel = null; zeichne(); };
   if ($('#msOk')) $('#msOk').onclick = () => { v.massstab = zahl($('#ms').value); v.kalib = null; v.zeit = jetzt(); speichern(); zeichneVorlage(); };
   if ($('#kalibWeg')) $('#kalibWeg').onclick = () => { v.kalib = null; v.zeit = jetzt(); speichern(); zeichneVorlage(); };
@@ -682,7 +692,7 @@ function gesamtmass(v, l){   // Gesamtmass über eine Kette, eine Stufe weiter a
   const a = k[0], L = laenge(a) || 1, ux = (a.x2 - a.x1) / L, uy = (a.y2 - a.y1) / L, nx = -uy, ny = ux;
   const pts = k.flatMap(x => [{x: x.x1, y: x.y1}, {x: x.x2, y: x.y2}]), t = q => (q.x - a.x1) * ux + (q.y - a.y1) * uy;
   const lo = pts.reduce((m, q) => t(q) < t(m) ? q : m), hi = pts.reduce((m, q) => t(q) > t(m) ? q : m);
-  const ab0 = a.ab || 0, F = Math.max(v.w, v.h) / 100 * (v.gr || 1), ab = ab0 + (ab0 < 0 ? -1 : 1) * F * 2.4;
+  const ab0 = a.ab || 0, F = fGr(v), ab = ab0 + (ab0 < 0 ? -1 : 1) * F * 2.4;
   const g = {id: neueId(), x1: lo.x, y1: lo.y, x2: hi.x, y2: hi.y, text: 'Gesamt', soll: null, gesamt: true, kette: l.kette, zeit: jetzt()};
   const m = {nx: -(hi.y - lo.y) / (Math.hypot(hi.x - lo.x, hi.y - lo.y) || 1), ny: (hi.x - lo.x) / (Math.hypot(hi.x - lo.x, hi.y - lo.y) || 1)};
   g.ab = (nx * ab) * m.nx + (ny * ab) * m.ny;
@@ -873,10 +883,10 @@ async function pdfSpeichern(liste, leer){
     // Stift-Einträge
     if (!leer) for (const st of (b.ink || []).filter(x => !x.weg)) { const pts = st.p; if (pts.length < 4) continue;
       let d = 'M ' + pts[0] + ' ' + pts[1]; for (let i = 2; i < pts.length; i += 2) d += ' L ' + pts[i] + ' ' + pts[i + 1];
-      page.drawSvgPath(d, {x: ox, y: oy + dh, scale: k, borderColor: farbe(st.f || ROT), borderWidth: Math.max(.4, Math.max(v.w, v.h) / 100 * (v.gr || 1) * (st.d || .16) * k), borderLineCap: LineCapStyle.Round}); }
+      page.drawSvgPath(d, {x: ox, y: oy + dh, scale: k, borderColor: farbe(st.f || ROT), borderWidth: Math.max(.4, fGr(v) * (st.d || .16) * k), borderLineCap: LineCapStyle.Round}); }
     if (!leer && b.notiz) page.drawText(sicher(schrift, 'Notiz: ' + b.notiz).slice(0, 220), {x: R, y: R - 14, size: 9, font: schrift});
     // Fotos: Kamera-Symbol mit F-Nummer im Plan, danach je Blatt Fotoseiten (6 pro Seite)
-    const FO = leer ? [] : fotosVon(b), BL = rgb(28 / 255, 95 / 255, 209 / 255), Fp = Math.max(v.w, v.h) / 100 * (v.gr || 1) * k;
+    const FO = leer ? [] : fotosVon(b), BL = rgb(28 / 255, 95 / 255, 209 / 255), Fp = fGr(v) * k;
     FO.forEach((f, i) => { if (f.x == null) return; const cx = X(f.x), cy = Y(f.y), z = Fp * .9;
       page.drawRectangle({x: cx - z, y: cy - z * .7, width: z * 2, height: z * 1.4, color: BL}); page.drawCircle({x: cx, y: cy, size: z * .42, color: rgb(1, 1, 1)});
       page.drawCircle({x: cx, y: cy, size: z * .24, color: BL}); page.drawText('F' + (i + 1), {x: cx + z * 1.2, y: cy - Fp * .36, size: Fp, font: fett, color: BL}); });
@@ -933,7 +943,7 @@ function csv(){
 window.addEventListener('online', () => hochladen());
 if (Q.get('nr') && BETA) oeffneAuftrag(Q.get('nr'), Q.get('titel') || ''); else zeichne();
 if (online()) holeJson(ORDNER + '/index.json').then(f => { if (f.d) { index = mischeIndex(f.d, index); ls.set('planaufmass-index', JSON.stringify(index)); if (S.ansicht === 'liste') zeichne(); } }).catch(() => {});
-window.Planaufmass = {_intern: {mischeDaten, vorschlag, soll, mmProPx}};
+window.Planaufmass = {_intern: {mischeDaten, vorschlag, soll, mmProPx, fGr}};
 })();
 </script>
 </body>
