@@ -809,7 +809,7 @@ function zeichneBlatt(){
   document.querySelectorAll('tr[data-zl]').forEach(r => r.onclick = ev => { if (ev.target.tagName !== 'INPUT') fokus(r.dataset.zl); });
   document.querySelectorAll('[data-ist]').forEach(i => {
     i.onfocus = () => { if (S.aktiv !== i.dataset.ist) { S.aktiv = i.dataset.ist; document.querySelectorAll('tr[data-zl]').forEach(r => r.classList.toggle('aktiv', r.dataset.zl === S.aktiv)); malen(); } };
-    i.onchange = () => setzeWert(b, v, i.dataset.ist, zahl(i.value), malen);
+    i.onchange = i.oninput = () => { const z = zahl(i.value), jw = b.werte[i.dataset.ist]; if (z !== (jw && jw.v != null ? jw.v : null)) setzeWert(b, v, i.dataset.ist, z, malen); };
     i.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); i.dispatchEvent(new Event('change'));
       const k = L.findIndex(l => l.id === i.dataset.ist), n = L[k + 1]; if (n) fokus(n.id); else i.blur(); };
   });
@@ -826,7 +826,16 @@ function setzeWert(b, v, lid, wert, malen){
 // ---------- Ausmass-Eingabe (Tablet): Zahl per Tastatur oder Handschrift mit dem Stift, Linien bleiben fest ----------
 const TOUCH = matchMedia('(pointer: coarse)').matches;
 function listeZeigen(){ if (S.liste == null) { const g = ls.get('planaufmass-liste'); S.liste = g == null ? !TOUCH : g === '1'; } return S.liste; }
-function eingabeZu(){ const d = $('#eing'); if (d) d.remove(); }
+// Plan so verschieben, dass das gewählte Mass oberhalb des Eingabefensters sichtbar bleibt
+function sichtbarMachen(v, l, d){
+  const svg = $('#svg'), vb = S.vb['v' + v.id]; if (!svg || !vb) return;
+  const G = geo(v, l, ''), ctm = svg.getScreenCTM(); if (!ctm) return;
+  const pt = svg.createSVGPoint(); pt.x = G.mx; pt.y = G.my; const q = pt.matrixTransform(ctm), r = svg.getBoundingClientRect();
+  const oben = r.top, unten = Math.min(r.bottom, d.getBoundingClientRect().top) - 20; if (unten - oben < 60) return;
+  if (q.y > oben + 20 && q.y < unten && q.x > r.left + 20 && q.x < r.right - 20) return;
+  vb.x += (q.x - (r.left + r.right) / 2) / ctm.a; vb.y += (q.y - (oben + unten) / 2) / ctm.d; setzeVb(svg, 'v' + v.id);
+}
+function eingabeZu(){ if (S.eingabeSichern) { try { S.eingabeSichern(); } catch(e){} S.eingabeSichern = null; } const d = $('#eing'); if (d) d.remove(); }   // offene Eingabe immer zuerst sichern
 function eingabe(b, v, lid, stift, malen){
   eingabeZu(); const L = linienVon(v), i = L.findIndex(x => x.id === lid), l = L[i]; if (!l) return;
   S.aktiv = lid; if (malen) malen();
@@ -855,14 +864,16 @@ function eingabe(b, v, lid, stift, malen){
   c.onpointermove = e => { if (!akt) return; akt.push(...pos(e)); zeichnePad(); };
   c.onpointerup = c.onpointercancel = () => { if (!akt) return; if (akt.length < 4) akt.push(akt[0] + .003, akt[1]); striche.push(akt); akt = null; zeichnePad(); speichereHand(); };
   const inp = $('#eWert');
-  const uebernehmen = () => { const z = zahl(inp.value), alt = w && w.v != null ? w.v : null; if (z !== alt) setzeWert(b, v, lid, z, malen); };
-  const gehe = k => { uebernehmen(); const n = L[i + k]; if (n) eingabe(b, v, n.id, stift, malen); else { eingabeZu(); S.aktiv = null; if (malen) malen(); } };
+  const uebernehmen = () => { const z = zahl(inp.value), jw = b.werte[lid], alt = jw && jw.v != null ? jw.v : null; if (z !== alt) setzeWert(b, v, lid, z, malen); };
+  S.eingabeSichern = uebernehmen;
+  const gehe = k => { uebernehmen(); S.eingabeSichern = null; const n = L[i + k]; if (n) eingabe(b, v, n.id, stift, malen); else { eingabeZu(); S.aktiv = null; if (malen) malen(); } };
   inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); gehe(1); } };
-  inp.onchange = uebernehmen;
+  inp.onchange = uebernehmen; inp.oninput = uebernehmen;   // jede Ziffer sofort speichern (Android-Tastatur löst «change» oft nicht aus)
   d.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.e;
-    if (a === 'zu') { uebernehmen(); eingabeZu(); S.aktiv = null; if (malen) malen(); }
+    if (a === 'zu') { eingabeZu(); S.aktiv = null; if (malen) malen(); }
     else if (a === 'leer') { striche = []; zeichnePad(); speichereHand(); }
     else if (a === 'weiter') gehe(1); else if (a === 'vor') gehe(-1); };
+  sichtbarMachen(v, l, d);
   if (!stift) { inp.focus({preventScroll: true}); setTimeout(() => { if (document.activeElement !== inp && $('#eing') === d) inp.focus({preventScroll: true}); }, 80); }   // nach Touch kommen noch Maus-Ersatzereignisse
 }
 // ---------- Fotos am Blatt: verkleinern, Leiste, Grossbild ----------
@@ -900,8 +911,9 @@ GLM.beiStatus = () => { const k = $('#glm'); if (k) { k.textContent = GLM.text()
 GLM.beiWert = w => {
   if (S.ansicht !== 'blatt') return; const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v) return;
   const L = linienVon(v), id = S.aktiv || (L.find(l => !(b.werte[l.id] && b.werte[l.id].v != null)) || {}).id; if (!id) return;
+  if (S.eingabeSichern && id !== S.aktiv) S.eingabeSichern();   // getippte Zahl im offenen Fenster nicht verlieren
   setzeWert(b, v, id, w, null); if (navigator.vibrate) navigator.vibrate(60);
-  if ($('#eing')) { const L2 = linienVon(v), k2 = L2.findIndex(l => l.id === id), n2 = L2.slice(k2 + 1).find(l => !erfasst(b, l.id)); eingabeZu(); const y = scrollY; zeichneBlatt(); scrollTo(0, y); if (n2) eingabe(b, v, n2.id, false, null); S.aktiv = n2 ? n2.id : null; return; }
+  if ($('#eing')) { const L2 = linienVon(v), k2 = L2.findIndex(l => l.id === id), n2 = L2.slice(k2 + 1).find(l => !erfasst(b, l.id)); S.eingabeSichern = null; eingabeZu(); const y = scrollY; zeichneBlatt(); scrollTo(0, y); if (n2) eingabe(b, v, n2.id, false, null); S.aktiv = n2 ? n2.id : null; return; }
   const k = L.findIndex(l => l.id === id), n = L.slice(k + 1).find(l => !(b.werte[l.id] && b.werte[l.id].v != null));
   S.aktiv = n ? n.id : null; const y = scrollY; zeichneBlatt(); scrollTo(0, y);
 };
@@ -1023,6 +1035,8 @@ function csv(){
 
 // ---------- Start ----------
 window.addEventListener('online', () => hochladen());
+addEventListener('pagehide', () => { if (S.eingabeSichern) S.eingabeSichern(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S.eingabeSichern) S.eingabeSichern(); });
 if (Q.get('nr') && BETA) oeffneAuftrag(Q.get('nr'), Q.get('titel') || ''); else zeichne();
 if (online()) holeJson(ORDNER + '/index.json').then(f => { if (f.d) { index = mischeIndex(f.d, index); ls.set('planaufmass-index', JSON.stringify(index)); if (S.ansicht === 'liste') zeichne(); } }).catch(() => {});
 window.Planaufmass = {_intern: {mischeDaten, vorschlag, soll, mmProPx, fGr}};
