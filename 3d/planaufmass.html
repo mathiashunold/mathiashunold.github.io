@@ -227,7 +227,7 @@ function speichern(){
 }
 function merkeIndex(){
   if (!daten) return; const a = daten.auftrag, i = index.auftraege.findIndex(x => x.nr === a.nr);
-  const e = {nr: a.nr, titel: a.titel || '', vorlagen: aktiveVorlagen().length, blaetter: daten.blaetter.filter(b => !b.weg).length, zeit: jetzt()};
+  const e = {nr: a.nr, titel: a.titel || '', vorlagen: aktiveVorlagen().length, blaetter: daten.blaetter.filter(b => !b.weg).length, fertig: daten.blaetter.filter(b => !b.weg && b.fertig).length, zeit: jetzt()};
   if (i >= 0) index.auftraege[i] = e; else index.auftraege.unshift(e);
 }
 async function hochladen(versuch){

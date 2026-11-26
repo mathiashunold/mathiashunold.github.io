@@ -354,12 +354,29 @@ async function ladeJobs(){
     const enc = await fetchJSON('auftraege.json');
     S.jobs = enc ? JSON.parse(await decrypt(enc, S.ansichtPw)).auftraege || [] : [];
   } catch(e){ S.jobs = []; toast('Auftragsliste konnte nicht geladen werden.'); }
-  zeichneListe();
+  zeichneListe(); ladeAufmass();
 }
 $('#q').addEventListener('input', zeichneListe);
 
+// ---------- Aufmass-Aufträge (Plan- und Türaufmass) ----------
+// Lokal aus localStorage (gleiche Herkunft wie planaufmass.html/tueren.html), mit Upload-Schlüssel zusätzlich aus dem Repo (Branch kontrolle).
+const aufmassSichtbar = () => S.rolle === 'planung';
+function aufmassLokal(k){ try { return (JSON.parse(localStorage.getItem(k) || 'null') || {}).auftraege || []; } catch(e){ return []; } }
+function aufmassMischen(...listen){ const m = {}; for (const l of listen) for (const x of l || []) if (x && x.nr && (!m[x.nr] || String(x.zeit || '') > String(m[x.nr].zeit || ''))) m[x.nr] = x; return m; }
+let aufmassFern = {plan: [], tuer: []};
+async function ladeAufmass(){
+  if (!aufmassSichtbar() || !S.token || !S.repo || !navigator.onLine) return;
+  const hole = async p => { const r = await fetch(API + '/repos/' + S.repo + '/contents/' + p + '?ref=kontrolle&_=' + Date.now(), {headers: {'Authorization': 'Bearer ' + S.token, 'Accept': 'application/vnd.github.raw'}});
+    if (!r.ok) return []; try { return (await r.json()).auftraege || []; } catch(e){ return []; } };
+  try { const [plan, tuer] = await Promise.all([hole('planaufmass/index.json'), hole('tueren/index.json')]); aufmassFern = {plan, tuer}; zeichneListe(); } catch(e){}
+}
+function aufmassKnoepfe(nr, titel, kunde, pa, tu){
+  return `<a class="btn${pa ? ' primary' : ''}" href="planaufmass.html?nr=${esc(encodeURIComponent(nr))}&amp;titel=${esc(encodeURIComponent(titel || ''))}">Planaufmass${pa ? ` <small>${pa.fertig != null ? esc(pa.fertig) + '/' : ''}${esc(pa.blaetter ?? 0)} ${pa.fertig != null ? 'abgeschl.' : 'Blätter'}</small>` : ' (Beta)'}</a>
+    <a class="btn${tu ? ' primary' : ''}" href="tueren.html?nr=${esc(encodeURIComponent(nr))}&amp;titel=${esc(encodeURIComponent(titel || ''))}&amp;kunde=${esc(encodeURIComponent(kunde || ''))}">Türaufmass${tu ? ` <small>${esc(tu.anzahl ?? 0)} Türen</small>` : ' (Beta)'}</a>`;
+}
 function zeichneListe(){
   const q = $('#q').value.trim().toLowerCase();
+  const plan = aufmassSichtbar() ? aufmassMischen(aufmassFern.plan, aufmassLokal('planaufmass-index')) : {}, tuer = aufmassSichtbar() ? aufmassMischen(aufmassFern.tuer, aufmassLokal('tueren-index')) : {};
   const laufend = S.runs.filter(r => r.status !== 'completed' || r.conclusion !== 'success');
   const jobs = S.jobs.slice().sort((a, b) => String(b.aktualisiert).localeCompare(String(a.aktualisiert)))
     .filter(j => !q || [j.nr, j.titel, j.kunde].join(' ').toLowerCase().includes(q));
@@ -381,9 +398,18 @@ function zeichneListe(){
         ${S.rolle === 'planung' ? `<button class="btn" type="button" data-csv="${esc(j.nr)}">Positionsliste (CSV)</button>` : ''}
         ${S.beta && S.token ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#kontrolle">Aufmass-Hilfe (Beta)</a>` : ''}
         ${S.beta ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#ar">AR (Beta)</a>` : ''}
-        ${S.beta ? `<a class="btn" href="tueren.html?nr=${esc(encodeURIComponent(j.nr))}&amp;titel=${esc(encodeURIComponent(j.titel || ''))}&amp;kunde=${esc(encodeURIComponent(j.kunde || ''))}">Türaufmass (Beta)</a>
-        <a class="btn" href="planaufmass.html?nr=${esc(encodeURIComponent(j.nr))}&amp;titel=${esc(encodeURIComponent(j.titel || ''))}">Planaufmass (Beta)</a>` : ''}
+        ${aufmassSichtbar() ? aufmassKnoepfe(j.nr, j.titel, j.kunde, plan[j.nr], tuer[j.nr]) : ''}
       </div></div>`;
+  }
+  // Aufmass-Aufträge ohne 3D-Ansicht: eigene Karte in derselben Liste
+  const ohne3d = [...new Set([...Object.keys(plan), ...Object.keys(tuer)])].filter(nr => !S.jobs.some(j => String(j.nr) === String(nr)))
+    .map(nr => ({nr, pa: plan[nr], tu: tuer[nr], titel: (plan[nr] && plan[nr].titel) || (tuer[nr] && tuer[nr].titel) || '', kunde: (tuer[nr] && tuer[nr].kunde) || '',
+      zeit: [plan[nr], tuer[nr]].filter(Boolean).map(x => String(x.zeit || '')).sort().pop() || ''}))
+    .filter(a => !q || [a.nr, a.titel, a.kunde].join(' ').toLowerCase().includes(q)).sort((a, b) => b.zeit.localeCompare(a.zeit));
+  for (const a of ohne3d) {
+    h += `<div class="card job"><div><div class="nr">Auftrag ${esc(a.nr)}</div><div class="tt">${esc(a.titel || 'Aufmass')}</div></div>
+      <div class="meta">${esc(a.kunde)}${a.kunde ? ' · ' : ''}Nur Aufmass, noch keine 3D-Ansicht · zuletzt ${esc(fmtDate(a.zeit))}</div>
+      <div class="acts">${aufmassKnoepfe(a.nr, a.titel, a.kunde, a.pa, a.tu)}</div></div>`;
   }
   if (!h) h = `<div class="card empty">${q ? 'Kein Auftrag gefunden.' : (S.rolle === 'planung' ? 'Noch keine Aufträge. Lade oben den ersten Planstand hoch.' : 'Noch keine Aufträge vorhanden.')}</div>`;
   $('#list').innerHTML = h;
