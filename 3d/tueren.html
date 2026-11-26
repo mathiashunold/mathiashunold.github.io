@@ -173,6 +173,13 @@ function mischeDaten(a, b){
   const auftrag = (a.auftrag && b.auftrag) ? ((a.auftrag.zeit || '') > (b.auftrag.zeit || '') ? a.auftrag : b.auftrag) : (a.auftrag || b.auftrag);
   return {v: 1, auftrag, tueren: Object.values(t).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''))};
 }
+// Zusammenführen in die bestehenden Objekte (offene Tür behält ihren Verweis, sonst gingen Eingaben nach dem ersten Hochladen verloren)
+function datenUebernehmen(m){
+  if (!daten || !m) { daten = m || daten; return; }
+  const map = new Map((daten.tueren || []).map(x => [x.id, x]));
+  daten.tueren = (m.tueren || []).map(x => { const a = map.get(x.id); if (!a) return x; for (const k of Object.keys(a)) if (!(k in x)) delete a[k]; return Object.assign(a, x); });
+  Object.assign(daten.auftrag, m.auftrag);
+}
 let syncT = 0, laeuft = false;
 function speichern(){
   if (daten) ls.set('tueren-' + daten.auftrag.nr, JSON.stringify(daten));
@@ -191,7 +198,7 @@ async function hochladen(versuch){
     await schreibe('tueren/index.json', b64enc(JSON.stringify(index, null, 1)), fi.sha, 'Türaufmass: Auftragsliste');
     if (daten) {
       const p = 'tueren/' + daten.auftrag.nr + '.json', f = await holeJson(p);
-      daten = mischeDaten(f.d, daten); ls.set('tueren-' + daten.auftrag.nr, JSON.stringify(daten));
+      datenUebernehmen(mischeDaten(f.d, daten)); ls.set('tueren-' + daten.auftrag.nr, JSON.stringify(daten));
       await schreibe(p, b64enc(JSON.stringify(daten, null, 1)), f.sha, 'Türaufmass ' + daten.auftrag.nr);
     }
     S.sync = 'Gespeichert für die Planung · ' + new Date().toLocaleTimeString('de-CH', {hour: '2-digit', minute: '2-digit'});
@@ -422,7 +429,7 @@ async function oeffneAuftrag(nr, neu){
   if (!daten) daten = {v: 1, auftrag: Object.assign({nr, titel: '', kunde: '', objekt: '', zeit: jetzt()}, neu || {}), tueren: []};
   else if (neu) Object.assign(daten.auftrag, Object.fromEntries(Object.entries(neu).filter(([, v]) => v)), {zeit: jetzt()});
   merkeIndex(); S.ansicht = 'auftrag'; S.nr = nr; history.replaceState(null, '', '?nr=' + encodeURIComponent(nr)); zeichne(); speichern();
-  if (online()) holeJson('tueren/' + nr + '.json').then(f => { if (f.d) { daten = mischeDaten(f.d, daten); ls.set('tueren-' + nr, JSON.stringify(daten)); merkeIndex(); if (S.ansicht === 'auftrag') zeichne(); } }).catch(() => {});
+  if (online()) holeJson('tueren/' + nr + '.json').then(f => { if (f.d && daten && daten.auftrag.nr === nr) { datenUebernehmen(mischeDaten(f.d, daten)); ls.set('tueren-' + nr, JSON.stringify(daten)); merkeIndex(); if (S.ansicht === 'auftrag') zeichne(); } }).catch(() => {});
 }
 function merkeIndex(){
   const a = daten.auftrag, e = {nr: a.nr, titel: a.titel, kunde: a.kunde, objekt: a.objekt, anzahl: daten.tueren.filter(t => !t.geloescht).length, zeit: jetzt()};
@@ -700,5 +707,6 @@ window.__tuer = {auswerten, mischeDaten, zeile, SPALTEN};   // für Tests
 start();
 })();
 </script>
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));   // offline-fähig</script>
 </body>
 </html>

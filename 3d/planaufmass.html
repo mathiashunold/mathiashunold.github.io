@@ -189,6 +189,14 @@ function mischeDaten(a, b){
   const sort = o => Object.values(o).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''));
   return {v: 1, auftrag: neuer(a.auftrag, b.auftrag), vorlagen: sort(v), blaetter: sort(bl)};
 }
+// Ergebnis des Zusammenführens IN die bestehenden Objekte übernehmen: offene Ansichten halten Verweise auf Vorlage/Blatt –
+// würde «daten» ersetzt, schrieben sie nach dem ersten Hochladen in eine verwaiste Kopie (Fehler «Masse werden nicht gespeichert», 26.11.)
+function datenUebernehmen(m){
+  if (!daten || !m) { daten = m || daten; return; }
+  const gleich = (alt, neu) => { const map = new Map((alt || []).map(x => [x.id, x]));
+    return (neu || []).map(x => { const a = map.get(x.id); if (!a) return x; for (const k of Object.keys(a)) if (!(k in x)) delete a[k]; return Object.assign(a, x); }); };
+  daten.vorlagen = gleich(daten.vorlagen, m.vorlagen); daten.blaetter = gleich(daten.blaetter, m.blaetter); Object.assign(daten.auftrag, m.auftrag);
+}
 let syncT = 0, laeuft = false;
 function speichern(){
   if (daten) ls.set('planaufmass-' + daten.auftrag.nr, JSON.stringify(daten));
@@ -212,7 +220,7 @@ async function hochladen(versuch){
     await schreibe(ORDNER + '/index.json', b64enc(JSON.stringify(index, null, 1)), fi.sha, 'Planaufmass: Auftragsliste');
     if (daten) {
       const p = ORDNER + '/' + daten.auftrag.nr + '.json', f = await holeJson(p);
-      daten = mischeDaten(f.d, daten); ls.set('planaufmass-' + daten.auftrag.nr, JSON.stringify(daten));
+      datenUebernehmen(mischeDaten(f.d, daten)); ls.set('planaufmass-' + daten.auftrag.nr, JSON.stringify(daten));
       await schreibe(p, b64enc(JSON.stringify(daten)), f.sha, 'Planaufmass ' + daten.auftrag.nr);
     }
     S.sync = 'Gespeichert für alle Geräte · ' + new Date().toLocaleTimeString('de-CH', {hour: '2-digit', minute: '2-digit'});
@@ -403,7 +411,7 @@ function oeffneAuftrag(nr, titel){
   daten = ladeLokal('planaufmass-' + nr) || {v: 1, auftrag: {nr, titel: titel || '', zeit: jetzt()}, vorlagen: [], blaetter: []};
   if (titel && !daten.auftrag.titel) Object.assign(daten.auftrag, {titel, zeit: jetzt()});
   merkeIndex(); S.ansicht = 'auftrag'; S.nr = nr; history.replaceState(null, '', '?nr=' + encodeURIComponent(nr)); zeichne(); speichern();
-  if (online()) holeJson(ORDNER + '/' + nr + '.json').then(f => { if (f.d && daten && daten.auftrag.nr === nr) { daten = mischeDaten(f.d, daten);
+  if (online()) holeJson(ORDNER + '/' + nr + '.json').then(f => { if (f.d && daten && daten.auftrag.nr === nr) { datenUebernehmen(mischeDaten(f.d, daten));
     ls.set('planaufmass-' + nr, JSON.stringify(daten)); merkeIndex(); if (S.ansicht === 'auftrag') zeichne(); } }).catch(() => {});
 }
 const handVon = (b, lid) => { const h = b && b.hand && b.hand[lid]; return h && h.s && h.s.length ? h.s : null; };
@@ -1042,5 +1050,6 @@ if (online()) holeJson(ORDNER + '/index.json').then(f => { if (f.d) { index = mi
 window.Planaufmass = {_intern: {mischeDaten, vorschlag, soll, mmProPx, fGr}};
 })();
 </script>
+<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));   // offline-fähig</script>
 </body>
 </html>
