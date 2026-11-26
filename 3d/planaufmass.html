@@ -244,13 +244,18 @@ async function bildUrl(k){
 // ---------- Massstab: mm in Wirklichkeit pro Bildpunkt ----------
 function mmProPx(v){ return v.kalib || (v.ptProPx && v.massstab ? v.ptProPx * 25.4 / 72 * v.massstab : null); }
 function laenge(l){ return Math.hypot(l.x2 - l.x1, l.y2 - l.y1); }
-function soll(v, l){ if (l.soll != null && l.soll !== '') return +l.soll; const f = mmProPx(v); return f ? Math.round(laenge(l) * f) : null; }
+function soll(v, l){ if (l.soll != null && l.soll !== '') return +l.soll; if (l.art === 'h') return null; const f = mmProPx(v); return f ? Math.round(laenge(l) * f) : null; }
 function nummeriere(v){ linienVon(v).forEach((l, i) => { l.nr = i + 1; }); }
 
 // ---------- Plan zeichnen (SVG in Bildpunkten des Plans) – gemeinsam für Bearbeiten, Blatt und Druck ----------
 // Geometrie einer Masslinie in Bildpunkten: Messpunkte P1/P2 bleiben, die Masslinie liegt um «ab» (entlang n) daneben, Hilfslinien verbinden beide
 function geo(v, l, txt){
   const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
+  if (l.art === 'h') {   // Höhenangabe im Grundriss (Wunsch Mathias 26.11.): Kreuz am Messpunkt, «H:» und Kästchen daneben
+    const c = F * .35, bw = Math.max(F * 3.6, ((txt || '').length * .58 + 1) * F), x0 = l.x1 + F * .6;
+    return {F, sw, segs: [[l.x1 - c, l.y1 - c, l.x1 + c, l.y1 + c, sw * 1.4], [l.x1 - c, l.y1 + c, l.x1 + c, l.y1 - c, sw * 1.4]], a1x: l.x1, a1y: l.y1, a2x: l.x1, a2y: l.y1,
+      mx: x0 + F * 1.5 + bw / 2, my: l.y1, wi: 0, bw, bh: F * 1.56, fs: F * 1.05, vor: {t: 'H:', x: x0, y: l.y1}};
+  }
   const L = laenge(l) || 1, ux = (l.x2 - l.x1) / L, uy = (l.y2 - l.y1) / L, nx = -uy, ny = ux, ab = l.ab || 0;
   const a1x = l.x1 + nx * ab, a1y = l.y1 + ny * ab, a2x = l.x2 + nx * ab, a2y = l.y2 + ny * ab;
   let sx = nx, sy = ny;                                                              // Seite der Beschriftung: weg vom Bauteil
@@ -279,10 +284,11 @@ function planInhalt(v, b, opt){
       ${G.segs.map(q => `<line x1="${q[0]}" y1="${q[1]}" x2="${q[2]}" y2="${q[3]}" stroke="${farbe}" stroke-width="${q[5] && sel ? q[4] * 2 : q[4]}"/>`).join('')}
       <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})"><rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
       <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${G.fs}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text></g>
+      ${G.vor ? `<circle cx="${l.x1}" cy="${l.y1}" r="${F * .8}" fill="transparent"/><text x="${G.vor.x}" y="${G.vor.y + F * .38}" font-size="${G.fs}" font-weight="700" fill="${farbe}" font-family="Arial,sans-serif">${G.vor.t}</text>` : ''}
     </g>`;
-    if (opt.modus === 'vorlage' && sel) s += [[l.x1, l.y1, 1], [l.x2, l.y2, 2]].map(([x, y, e]) =>
+    if (opt.modus === 'vorlage' && sel) s += (l.art === 'h' ? [[l.x1, l.y1, 1]] : [[l.x1, l.y1, 1], [l.x2, l.y2, 2]]).map(([x, y, e]) =>
       `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .55}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
-      + `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(G.a1x + G.a2x) / 2 - F * .5}" y="${(G.a1y + G.a2y) / 2 - F * .5}" width="${F}" height="${F}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`;
+      + (l.art === 'h' ? '' : `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(G.a1x + G.a2x) / 2 - F * .5}" y="${(G.a1y + G.a2y) / 2 - F * .5}" width="${F}" height="${F}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`);
   }
   if (b) for (const st of (b.ink || []).filter(x => !x.weg)) s += `<polyline points="${st.p.join(' ')}" fill="none" stroke="${st.f || ROT}" stroke-width="${F * (st.d || .16)}" stroke-linecap="round" stroke-linejoin="round"/>`;
   if (opt.vorschau) s += opt.vorschau;
@@ -525,14 +531,16 @@ function zeichneVorlage(){
     <div class="layout"><div>
       <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
         <button class="btn klein" type="button" data-m="linie" aria-pressed="${S.modus === 'linie'}">Masslinie</button>
-        <button class="btn klein" type="button" data-m="kette" aria-pressed="${S.modus === 'kette'}" ${linienVon(v).length ? '' : 'disabled'}>Weiterführen</button>
+        <button class="btn klein" type="button" data-m="kette" aria-pressed="${S.modus === 'kette'}" ${linienVon(v).some(x => x.art !== 'h') ? '' : 'disabled'}>Weiterführen</button>
         <button class="btn klein" type="button" data-m="pan" aria-pressed="${S.modus === 'pan'}">Verschieben</button>
+        <button class="btn klein" type="button" data-m="hoehe" aria-pressed="${S.modus === 'hoehe'}">Höhe H:</button>
         <button class="btn klein" type="button" data-m="kalib" aria-pressed="${S.modus === 'kalib'}">Massstab einmessen</button>
         <span class="trenner"></span>${zoomKnoepfe()}<span class="trenner"></span>
         <button class="btn klein" type="button" id="grm" aria-label="Beschriftung kleiner">A−</button><button class="btn klein" type="button" id="grp" aria-label="Beschriftung grösser">A+</button>
       </div>
       <div class="plan"><svg id="svg" class="${S.modus === 'pan' ? 'pan' : ''}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} mit Masslinien"></svg></div>
       <p class="hint">${S.modus === 'kalib' ? 'Eine Linie über ein bekanntes Mass ziehen (z. B. Bemassung 2.82 im Plan) und das Mass in mm eingeben.'
+        : S.modus === 'hoehe' ? 'Höhe: an die Stelle im Grundriss klicken/tippen, wo die Höhe gemessen wird – es erscheint «H:» mit einem Kästchen. Rechts eine Bezeichnung eingeben (z. B. Raumhöhe, Sturz, Brüstung).'
         : S.modus === 'kette' ? 'Weiterführen: an der nächsten Kante klicken/tippen – jeder Abschnitt wird ein eigenes Mass auf derselben Masslinie. Esc oder «Masslinie» = fertig.'
         : 'Messpunkte: drücken, von Kante zu Kante ziehen, loslassen (rastet waagrecht/senkrecht ein, Alt = frei). Danach die Masslinie mit der Maus wegziehen und klicken – die Hilfslinien wachsen mit. Am Tablet: Linie antippen und das blaue Quadrat ziehen. Runde Griffe = Messpunkte verschieben. Mausrad = Zoom, rechte Maustaste = Plan schieben, Entf = löschen.'}</p>
     </div>
@@ -545,7 +553,7 @@ function zeichneVorlage(){
         <label for="lText">Bezeichnung</label><input class="field" id="lText" value="${esc(l.text || '')}" placeholder="z. B. Nische Küche Breite">
         <label for="lSoll">Planmass (mm)</label><input class="field" id="lSoll" inputmode="decimal" value="${esc(l.soll != null ? l.soll : '')}" placeholder="${esc(soll(v, Object.assign({}, l, {soll: null})) != null ? soll(v, Object.assign({}, l, {soll: null})) : 'leer')}">
         <p class="hint">Leer = aus dem Plan gemessen.</p>
-        <div class="acts"><button class="btn" type="button" id="lKette">Weiterführen ab hier</button>${l.kette && kettenLaenge(v, l) > 1 ? '<button class="btn" type="button" id="lGesamt">Gesamtmass dazu</button>' : ''}</div>
+        <div class="acts" ${l.art === 'h' ? 'hidden' : ''}><button class="btn" type="button" id="lKette">Weiterführen ab hier</button>${l.kette && kettenLaenge(v, l) > 1 ? '<button class="btn" type="button" id="lGesamt">Gesamtmass dazu</button>' : ''}</div>
         <div class="acts"><button class="btn" type="button" id="lWeg">Linie löschen</button><button class="btn" type="button" id="lAb">Auswahl aufheben</button></div>` : ''}
       <h2>Masslinien</h2>
       ${linienVon(v).length ? `<table class="masse"><tr><th>Nr.</th><th>Bezeichnung</th><th class="soll">Plan</th></tr>
@@ -567,7 +575,7 @@ function zeichneVorlage(){
     for (const x of kette(l)) { const m = norm(x); x.ab = (x.ab || 0) + ox * m.nx + oy * m.ny; x.zeit = jetzt(); }
   }
   // Weiterführen: neuer Abschnitt ab dem Ende des letzten, auf derselben Geraden und derselben Masslinie
-  const ketteBasis = () => { const l = linienVon(v).find(x => x.id === S.ketteVon); return l || null; };
+  const ketteBasis = () => { const l = linienVon(v).find(x => x.id === S.ketteVon && x.art !== 'h'); return l || null; };
   function ketteZiel(p){ const l = ketteBasis(), n = norm(l), d = (p.x - l.x2) * n.ux + (p.y - l.y2) * n.uy; return {x: l.x2 + n.ux * d, y: l.y2 + n.uy * d, d}; }
   function ketteAnhaengen(q){
     const l = ketteBasis(); if (!l) return; if (!l.kette) l.kette = neueId();
@@ -588,6 +596,7 @@ function zeichneVorlage(){
       const g = e.target.closest && e.target.closest('.griff');
       if (g) { zug = {art: 'griff', l: linienVon(v).find(x => x.id === g.dataset.l), e: g.dataset.e}; return true; }
       if (S.modus === 'kette') { if (!ketteBasis()) return false; zug = {art: 'kette'}; return true; }
+      if (S.modus === 'hoehe') { const mh = e.target.closest && e.target.closest('.ml'); zug = mh ? {art: 'wahl', id: mh.dataset.l} : {art: 'hpunkt', p}; return true; }
       const ml = e.target.closest && e.target.closest('.ml');
       if (ml && S.modus === 'linie') { zug = {art: 'wahl', id: ml.dataset.l}; return true; }
       zug = {art: 'neu', a: p, p}; return true;
@@ -596,6 +605,7 @@ function zeichneVorlage(){
       if (!zug) return;
       if (zug.art === 'griff') { const l = zug.l;
         if (zug.e === 'ab') setzeAb(l, abstand(l, p));
+        else if (l.art === 'h') { l.x1 = l.x2 = p.x; l.y1 = l.y2 = p.y; }
         else { const a = zug.e === '1' ? {x: l.x2, y: l.y2} : {x: l.x1, y: l.y1}, q = fang(a, p, e);
           if (zug.e === '1') { l.x1 = q.x; l.y1 = q.y; } else { l.x2 = q.x; l.y2 = q.y; } }
         malen(); }
@@ -606,6 +616,9 @@ function zeichneVorlage(){
       const z = zug; zug = null; vorschau = null;
       if (!z) return;
       if (z.art === 'fix') return zeichneVorlage();
+      if (z.art === 'hpunkt') { const h = {id: neueId(), art: 'h', x1: z.p.x, y1: z.p.y, x2: z.p.x, y2: z.p.y, text: 'Höhe', soll: null, zeit: jetzt()};
+        v.linien = v.linien || []; v.linien.push(h); nummeriere(v); v.zeit = jetzt(); S.sel = h.id; speichern(); zeichneVorlage();
+        const t = $('#lText'); if (t) { t.focus({preventScroll: true}); t.select(); } return; }
       if (z.art === 'wahl') { S.sel = z.id; return zeichneVorlage(); }
       if (z.art === 'griff') { z.l.zeit = jetzt(); v.zeit = jetzt(); speichern(); return zeichneVorlage(); }
       if (z.art === 'kette') { const q = ketteZiel(p), ctm = svg.getScreenCTM();
@@ -625,7 +638,7 @@ function zeichneVorlage(){
     abbruch(){ zug = null; vorschau = null; malen(); }
   });
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.modus = b.dataset.m; S.abWahl = null;
-    if (S.modus === 'kette' && !linienVon(v).some(x => x.id === S.ketteVon)) S.ketteVon = (linienVon(v).find(x => x.id === S.sel) || linienVon(v).slice(-1)[0] || {}).id; zeichneVorlage(); });
+    const nurLinien = linienVon(v).filter(x => x.art !== 'h'); if (S.modus === 'kette' && !nurLinien.some(x => x.id === S.ketteVon)) S.ketteVon = (nurLinien.find(x => x.id === S.sel) || nurLinien.slice(-1)[0] || {}).id; zeichneVorlage(); });
   $('#grm').onclick = () => { v.gr = Math.max(.4, (v.gr || 1) / 1.2); v.zeit = jetzt(); speichern(); malen(); };
   $('#grp').onclick = () => { v.gr = Math.min(3, (v.gr || 1) * 1.2); v.zeit = jetzt(); speichern(); malen(); };
   $('#zurueck').onclick = $('#fertig').onclick = () => { S.ansicht = 'auftrag'; S.sel = null; zeichne(); };
@@ -794,6 +807,7 @@ async function pdfSpeichern(liste, leer){
         color: rgb(1, 1, 1), opacity: .93, borderColor: ROTp, borderWidth: Math.max(.25, G.sw * k)});
       if (txt) { const fs = G.fs * k, tw = fett.widthOfTextAtSize(txt, fs), lx = -tw / 2, ly = -fs * .36;
         page.drawText(txt, {x: cx + lx * c - ly * s2, y: cy + lx * s2 + ly * c, size: fs, font: fett, rotate: degrees(-G.wi), color: rgb(.07, .07, .07)}); }
+      if (G.vor) page.drawText(G.vor.t, {x: X(G.vor.x), y: Y(G.vor.y) - G.fs * k * .36, size: G.fs * k, font: fett, color: ROTp});
     }
     // Stift-Einträge
     if (!leer) for (const st of (b.ink || []).filter(x => !x.weg)) { const pts = st.p; if (pts.length < 4) continue;
