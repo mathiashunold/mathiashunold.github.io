@@ -96,6 +96,7 @@ table.masse .diff.gross{color:var(--warn);font-weight:700}
 .eingabe .zeile{display:flex;gap:8px;margin-top:8px}.eingabe .zeile input{flex:1;font-size:28px;font-weight:700;text-align:right;padding:6px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);min-width:0}
 .eingabe canvas{display:block;width:100%;margin-top:8px;background:#fff;border:1px dashed #999;border-radius:10px;touch-action:none;cursor:crosshair}
 .eingabe .acts{margin-top:8px}.eingabe .acts .btn{flex:1}
+.schiebeleiste{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:41;display:flex;gap:10px;align-items:center;background:var(--surface);border:2px solid var(--accent);border-radius:14px;padding:6px 6px 6px 14px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:15px}
 .layout.ohneListe{grid-template-columns:1fr}.layout.ohneListe .plan svg{height:calc(100vh - 190px)}
 .gross{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
 .gross img{max-width:100%;max-height:calc(100% - 90px);object-fit:contain;border-radius:8px}.gross .acts{margin:0;justify-content:center}
@@ -332,7 +333,7 @@ function planInhalt(v, b, opt){
       <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${G.fs}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>${!txt && b && opt.modus !== 'vorlage' && !opt.leer && handVon(b, l.id) ? handSvg(handVon(b, l.id), bx, my - G.bh / 2, bw, G.bh, b.hand[l.id].d) : ''}</g>
       ${G.vor ? `<circle cx="${l.x1}" cy="${l.y1}" r="${F * .8}" fill="transparent"/><text x="${G.vor.x}" y="${G.vor.y + F * .38}" font-size="${G.fs}" font-weight="700" fill="${farbe}" font-family="Arial,sans-serif">${G.vor.t}</text>` : ''}
     </g>`;
-    if (opt.modus === 'vorlage' && sel) s += (l.art === 'h' ? [[l.x1, l.y1, 1]] : [[l.x1, l.y1, 1], [l.x2, l.y2, 2]]).map(([x, y, e]) =>
+    if ((opt.modus === 'vorlage' && sel) || opt.griffe === l.id) s += (l.art === 'h' ? [[l.x1, l.y1, 1]] : [[l.x1, l.y1, 1], [l.x2, l.y2, 2]]).map(([x, y, e]) =>
       `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${Math.max(F * .55, (opt.gp || 0) * 16)}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
       + (l.art === 'h' ? '' : `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(G.a1x + G.a2x) / 2 - Math.max(F, (opt.gp || 0) * 30) / 2}" y="${(G.a1y + G.a2y) / 2 - Math.max(F, (opt.gp || 0) * 30) / 2}" width="${Math.max(F, (opt.gp || 0) * 30)}" height="${Math.max(F, (opt.gp || 0) * 30)}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`);
   }
@@ -780,25 +781,38 @@ function zeichneBlatt(){
       <div class="acts"><button class="btn" type="button" id="blattWeg">Blatt löschen</button></div>
       <p class="sync" id="sync">${esc(S.sync)}</p>
     </div></div>`;
-  const svg = $('#svg'); let url = bildUrls[v.bild] || '', strich = null, stiftDa = S.stiftDa || false, neuZug = null;
+  const svg = $('#svg'); let url = bildUrls[v.bild] || '', strich = null, stiftDa = S.stiftDa || false, neuZug = null, griffZug = null;
   const fangB = (a, q) => { const dx = q.x - a.x, dy = q.y - a.y, w = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90; return (w < 5 || w > 85) ? (Math.abs(dx) > Math.abs(dy) ? {x: q.x, y: a.y} : {x: a.x, y: q.y}) : q; };
-  const malen = () => { svg.innerHTML = planInhalt(v, b, {modus: 'blatt', aktiv: S.aktiv, url, vorschau: strich ? `<polyline points="${strich.p.join(' ')}" fill="none" stroke="${strich.f}" stroke-width="${Math.max(v.w, v.h) / 100 * strich.d}" stroke-linecap="round" stroke-linejoin="round"/>` : (neuZug ? `<line x1="${neuZug.a.x}" y1="${neuZug.a.y}" x2="${neuZug.p.x}" y2="${neuZug.p.y}" stroke="${ROT}" stroke-width="${fGr(v) * .08}" stroke-dasharray="${fGr(v) * .5}"/>` : '')}); };
+  const gpB = () => { const vb = S.vb[key]; return Math.max(vb.w / Math.max(1, svg.clientWidth), vb.h / Math.max(1, svg.clientHeight)); };
+  const malen = () => { svg.innerHTML = planInhalt(v, b, {modus: 'blatt', aktiv: S.aktiv, griffe: zusatzLinie(b, S.aktiv) ? S.aktiv : null, gp: gpB(), url, vorschau: strich ? `<polyline points="${strich.p.join(' ')}" fill="none" stroke="${strich.f}" stroke-width="${Math.max(v.w, v.h) / 100 * strich.d}" stroke-linecap="round" stroke-linejoin="round"/>` : (neuZug ? `<line x1="${neuZug.a.x}" y1="${neuZug.a.y}" x2="${neuZug.p.x}" y2="${neuZug.p.y}" stroke="${ROT}" stroke-width="${fGr(v) * .08}" stroke-dasharray="${fGr(v) * .5}"/>` : '')}); };
   setzeVb(svg, key); malen(); bildUrl(v.bild).then(u => { url = u; malen(); });
   zoomVerdrahten(svg, key, v);
   const fokus = id => { S.aktiv = id; document.querySelectorAll('tr[data-zl]').forEach(r => r.classList.toggle('aktiv', r.dataset.zl === id)); malen();
     const i = $('#ist_' + id); if (i) { i.focus({preventScroll: true}); i.scrollIntoView({block: 'nearest'}); } };
   planSteuerung(svg, key, {
     stift: () => stiftDa,   // Finger schiebt, sobald ein Stift erkannt wurde (Handballen)
+    nachZoom(){ if (zusatzLinie(b, S.aktiv)) malen(); },
     start(e, p){
       if (e.pointerType === 'pen') stiftDa = S.stiftDa = true;
+      const gr = e.target.closest && e.target.closest('.griff');   // Zusatzlinie verschieben: Endpunkte (Kreise) oder Masslinie (Quadrat)
+      if (gr && e.button === 0) { const l = (b.linien || []).find(x => x.id === gr.dataset.l); if (l) { griffZug = {l, e: gr.dataset.e}; return true; } }
       const feld = e.target.closest && e.target.closest('.ml');   // Stift direkt auf ein Mass → Schreibfeld öffnen
       if (S.modus === 'neu' && e.button === 0 && !(e.pointerType === 'touch' && stiftDa)) { neuZug = {a: p, p}; return true; }
       if (e.pointerType === 'pen' && feld && S.modus !== 'foto') { eingabe(b, v, feld.dataset.l, true, malen); return true; }
       if (S.modus !== 'stift' || e.button !== 0) return false;
       strich = {id: neueId(), f: S.farbe, d: dicke().n, p: [Math.round(p.x), Math.round(p.y)], erstellt: jetzt(), zeit: jetzt()}; return true;
     },
-    bewege(e, p){ if (neuZug) { neuZug.p = e.altKey ? p : fangB(neuZug.a, p); malen(); return; } if (!strich) return; const n = strich.p.length; if (Math.hypot(p.x - strich.p[n - 2], p.y - strich.p[n - 1]) < 2) return; strich.p.push(Math.round(p.x), Math.round(p.y)); malen(); },
+    bewege(e, p){
+      if (griffZug) { const l = griffZug.l;
+        if (griffZug.e === 'ab') { const L = laenge(l) || 1; l.ab = (p.x - l.x1) * (-(l.y2 - l.y1) / L) + (p.y - l.y1) * ((l.x2 - l.x1) / L); }
+        else { const a = griffZug.e === '1' ? {x: l.x2, y: l.y2} : {x: l.x1, y: l.y1}, q = e.altKey ? p : fangB(a, p);
+          if (griffZug.e === '1') { l.x1 = q.x; l.y1 = q.y; } else { l.x2 = q.x; l.y2 = q.y; } }
+        return malen(); }
+      if (neuZug) { neuZug.p = e.altKey ? p : fangB(neuZug.a, p); malen(); return; } if (!strich) return; const n = strich.p.length; if (Math.hypot(p.x - strich.p[n - 2], p.y - strich.p[n - 1]) < 2) return; strich.p.push(Math.round(p.x), Math.round(p.y)); malen(); },
     ende(){
+      if (griffZug) { griffZug.l.zeit = b.zeit = jetzt(); griffZug = null; speichern(); malen();
+        const d = $('#eing'), l = linienVon(v, b).find(x => x.id === S.aktiv), so = l && soll(v, l), sp = d && d.querySelector('.kopf span');   // Planmass im Fenster nachführen
+        if (sp && l) sp.textContent = sp.textContent.replace(/ · Plan.*$/, '') + (so != null ? ' · Plan ' + so : ''); return; }
       if (neuZug) { const z = neuZug; neuZug = null; const lang = Math.hypot(z.p.x - z.a.x, z.p.y - z.a.y) * svg.getScreenCTM().a;
         if (lang < 15) return malen();
         const l = {id: neueId(), x1: z.a.x, y1: z.a.y, x2: z.p.x, y2: z.p.y, ab: 0, text: '', soll: null, erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''};
@@ -806,7 +820,7 @@ function zeichneBlatt(){
         S.modus = 'ansehen'; S.oeffne = l.id; return zeichneBlatt(); }
       if (!strich) return; if (strich.p.length < 4) strich.p.push(strich.p[0] + 1, strich.p[1] + 1);
       b.ink = b.ink || []; b.ink.push(strich); strich = null; b.zeit = jetzt(); speichern(); malen(); },
-    abbruch(){ strich = null; neuZug = null; malen(); },
+    abbruch(){ strich = null; neuZug = null; griffZug = null; malen(); },
     tipp(e, p, ziel){
       const t = ziel && ziel.closest ? ziel : e.target, fo = t.closest && t.closest('.foto'); if (fo) return grossbild(b, fo.dataset.foto);
       if (S.modus === 'foto') { S.fotoOrt = {x: Math.round(p.x), y: Math.round(p.y)}; $('#kamera').click(); return; }   // Kamera öffnet (Tippen = Nutzeraktion)
@@ -859,7 +873,7 @@ function sichtbarMachen(v, l, d){
   if (q.y > oben + 20 && q.y < unten && q.x > r.left + 20 && q.x < r.right - 20) return;
   vb.x += (q.x - (r.left + r.right) / 2) / ctm.a; vb.y += (q.y - (oben + unten) / 2) / ctm.d; setzeVb(svg, 'v' + v.id);
 }
-function eingabeZu(){ if (S.eingabeSichern) { try { S.eingabeSichern(); } catch(e){} S.eingabeSichern = null; } const d = $('#eing'); if (d) d.remove(); }   // offene Eingabe immer zuerst sichern
+function eingabeZu(){ document.querySelectorAll('.schiebeleiste').forEach(x => x.remove()); if (S.eingabeSichern) { try { S.eingabeSichern(); } catch(e){} S.eingabeSichern = null; } const d = $('#eing'); if (d) d.remove(); }   // offene Eingabe immer zuerst sichern
 function eingabe(b, v, lid, stift, malen){
   eingabeZu(); const L = linienVon(v, b), i = L.findIndex(x => x.id === lid), l = L[i]; if (!l) return;
   S.aktiv = lid; if (malen) malen();
@@ -872,11 +886,11 @@ function eingabe(b, v, lid, stift, malen){
       ${GLM.status === 'ok' ? '<span class="hint" style="align-self:center">Bosch bereit</span>' : ''}</div>
     <canvas id="ePad" aria-label="Schreibfeld für den Stift"></canvas>
     <div class="acts" style="align-items:center"><span class="hint" style="margin:0">Stift:</span>${dickeKnoepfe()}</div>
-    <div class="acts">${zusatzLinie(b, lid) ? '<button class="btn" type="button" data-e="linieWeg">Linie löschen</button>' : ''}<button class="btn" type="button" data-e="leer">Schrift löschen</button><button class="btn" type="button" data-e="vor" ${i ? '' : 'disabled'}>‹ Zurück</button>
+    <div class="acts">${zusatzLinie(b, lid) ? '<button class="btn" type="button" data-e="schieben">Verschieben</button><button class="btn" type="button" data-e="linieWeg">Linie löschen</button>' : ''}<button class="btn" type="button" data-e="leer">Schrift löschen</button><button class="btn" type="button" data-e="vor" ${i ? '' : 'disabled'}>‹ Zurück</button>
       <button class="btn primary" type="button" data-e="weiter">${i < L.length - 1 ? 'Weiter ›' : 'Fertig'}</button></div>`;
   document.body.appendChild(d);
-  const c = $('#ePad'), cw = Math.min(640, d.clientWidth - 28), ch = Math.round(cw / seite), dpr = devicePixelRatio || 1;
-  c.style.height = ch + 'px'; c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr);
+  const c = $('#ePad'), cw = Math.round(Math.min(640, d.clientWidth - 28, Math.max(120, innerHeight * .22) * seite)), ch = Math.round(cw / seite), dpr = devicePixelRatio || 1;
+  c.style.height = ch + 'px'; c.style.width = cw + 'px'; c.style.margin = '8px auto 0'; c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr);
   const ctx = c.getContext('2d'); let striche = (handVon(b, lid) || []).map(x => x.slice()), akt = null, hd = (b.hand && b.hand[lid] && b.hand[lid].d) || dicke().h;
   const zeichnePad = () => { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, cw, ch); ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(8, ch * .8); ctx.lineTo(cw - 8, ch * .8); ctx.stroke();
     ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(1.5, ch * hd); ctx.lineCap = ctx.lineJoin = 'round';
@@ -898,6 +912,9 @@ function eingabe(b, v, lid, stift, malen){
   d.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.e;
     if (a === 'zu') { eingabeZu(); S.aktiv = null; if (malen) malen(); }
     else if (a === 'leer') { striche = []; zeichnePad(); speichereHand(); }
+    else if (a === 'schieben') { uebernehmen(); d.hidden = true; S.aktiv = lid; if (malen) malen();
+      const k = document.createElement('div'); k.className = 'schiebeleiste'; k.innerHTML = '<span>Runde Griffe = Endpunkte, blaues Quadrat = Masslinie wegziehen</span><button class="btn primary" type="button">Fertig</button>';
+      document.body.appendChild(k); k.querySelector('button').onclick = () => { k.remove(); d.hidden = false; }; }
     else if (a === 'linieWeg') { if (!confirm('Diese Masslinie löschen?')) return; S.eingabeSichern = null; l.weg = true; l.zeit = b.zeit = jetzt(); speichern(); eingabeZu(); S.aktiv = null; zeichneBlatt(); }
     else if (a === 'weiter') gehe(1); else if (a === 'vor') gehe(-1); };
   sichtbarMachen(v, l, d);

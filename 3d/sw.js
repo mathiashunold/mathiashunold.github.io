@@ -1,7 +1,7 @@
 // Offline-Betrieb (Wunsch Mathias 26.11.: «App offline fähig»): Seiten, Bibliotheken und Daten-Dateien der 3D-Werkstatt im Gerät zwischenspeichern.
 // Gleiche Herkunft: zuerst Netz (max. 4 s), Kopie in den Zwischenspeicher; ohne Netz die gespeicherte Kopie (Schlüssel ohne ?…, damit ?nr= und ?t= passen).
 // Schriften/three.js von CDNs: gespeicherte Kopie sofort, im Hintergrund auffrischen. api.github.com wird nie angefasst (Speichern/Upload läuft wie bisher).
-const CACHE = 'werkstatt-v2';
+const CACHE = 'werkstatt-v3';
 const KERN = ['./', 'index.html', 'planaufmass.html', 'tueren.html', 'glm.js', 'scanner.js', 'kontrolle.js', 'ar.js', 'manifest.webmanifest',
   'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'lib/pdf.min.js', 'lib/pdf.worker.min.js', 'lib/pdf-lib.min.js',
   'lib/zxing-reader.js', 'lib/zxing_reader.wasm'];
