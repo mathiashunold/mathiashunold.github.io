@@ -90,6 +90,11 @@ table.masse .diff.gross{color:var(--warn);font-weight:700}
 .sync{font-size:14px;color:var(--muted)}
 .warn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;margin-top:8px;font-weight:600}
 [hidden]{display:none !important}
+.gross{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
+.gross img{max-width:100%;max-height:calc(100% - 90px);object-fit:contain;border-radius:8px}.gross .acts{margin:0;justify-content:center}
+.gross p{color:#fff;margin:0;font-weight:600}
+.fotoleiste{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.fotoleiste button{padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;position:relative}
+.fotoleiste img{width:84px;height:84px;object-fit:cover;border-radius:8px;display:block}.fotoleiste span{position:absolute;left:4px;top:4px;background:#1C5FD1;color:#fff;font-size:12px;font-weight:700;border-radius:6px;padding:0 5px}
 </style>
 </head>
 <body>
@@ -163,7 +168,9 @@ function mischeBlatt(a, b){
   const n = Object.assign({}, neuer(a, b)), werte = {};
   for (const q of [a, b]) for (const [k, w] of Object.entries(q.werte || {})) werte[k] = neuer(werte[k], w);
   const ink = {}; for (const q of [a, b]) for (const s of q.ink || []) ink[s.id] = neuer(ink[s.id], s);
-  n.werte = werte; n.ink = Object.values(ink).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || '')); return n;
+  const fo = {}; for (const q of [a, b]) for (const f of q.fotos || []) fo[f.id] = neuer(fo[f.id], f);
+  n.werte = werte; n.ink = Object.values(ink).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''));
+  n.fotos = Object.values(fo).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || '')); return n;
 }
 function mischeDaten(a, b){
   if (!a) return b; if (!b) return a;
@@ -290,6 +297,10 @@ function planInhalt(v, b, opt){
       `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .55}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
       + (l.art === 'h' ? '' : `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(G.a1x + G.a2x) / 2 - F * .5}" y="${(G.a1y + G.a2y) / 2 - F * .5}" width="${F}" height="${F}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`);
   }
+  if (b && !opt.leer) fotosVon(b).forEach((f, i) => { if (f.x == null) return; const z = F * .9;
+    s += `<g class="foto" data-foto="${f.id}" style="cursor:pointer"><rect x="${f.x - z}" y="${f.y - z * .7}" width="${z * 2}" height="${z * 1.4}" rx="${z * .25}" fill="${BLAU}"/>
+      <rect x="${f.x - z * .35}" y="${f.y - z * .95}" width="${z * .7}" height="${z * .3}" fill="${BLAU}"/><circle cx="${f.x}" cy="${f.y}" r="${z * .42}" fill="#fff"/><circle cx="${f.x}" cy="${f.y}" r="${z * .24}" fill="${BLAU}"/>
+      <text x="${f.x + z * 1.2}" y="${f.y + F * .38}" font-size="${F}" font-weight="700" fill="${BLAU}" font-family="Arial,sans-serif" paint-order="stroke" stroke="#fff" stroke-width="${F * .2}">F${i + 1}</text></g>`; });
   if (b) for (const st of (b.ink || []).filter(x => !x.weg)) s += `<polyline points="${st.p.join(' ')}" fill="none" stroke="${st.f || ROT}" stroke-width="${F * (st.d || .16)}" stroke-linecap="round" stroke-linejoin="round"/>`;
   if (opt.vorschau) s += opt.vorschau;
   return s;
@@ -301,11 +312,11 @@ function setzeVb(svg, key){ const vb = S.vb[key]; svg.setAttribute('viewBox', `$
 function einpassen(key, v){ S.vb[key] = {x: 0, y: 0, w: v.w, h: v.h}; }
 function zoom(svg, key, f, cx, cy){ const vb = S.vb[key]; vb.x = cx - (cx - vb.x) * f; vb.y = cy - (cy - vb.y) * f; vb.w *= f; vb.h *= f; setzeVb(svg, key); }
 function planSteuerung(svg, key, h){   // h: {start(e,p) → true, wenn eine eigene Aktion beginnt; bewege(e,p); ende(e,p); tipp(e,p); stift(e)}
-  const ptr = new Map(); let pinch = null, pan = null, eigen = false, bewegt = false, start = null;
+  const ptr = new Map(); let pinch = null, pan = null, eigen = false, bewegt = false, start = null, ziel = null;   // ziel: Element unter dem Finger beim Drücken (pointerup liefert wegen Capture das SVG)
   svg.addEventListener('wheel', e => { e.preventDefault(); const p = toPlan(svg, e); zoom(svg, key, Math.exp(e.deltaY * .0015), p.x, p.y); }, {passive: false});
   svg.addEventListener('contextmenu', e => e.preventDefault());
   svg.addEventListener('pointerdown', e => {
-    svg.setPointerCapture(e.pointerId); ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); bewegt = false; start = {x: e.clientX, y: e.clientY};
+    ziel = e.target; svg.setPointerCapture(e.pointerId); ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); bewegt = false; start = {x: e.clientX, y: e.clientY};
     if (ptr.size === 2) { if (eigen && h.abbruch) h.abbruch(); eigen = false; pan = null;
       const [a, c] = [...ptr.values()]; pinch = {d: Math.hypot(a.x - c.x, a.y - c.y), m: {x: (a.x + c.x) / 2, y: (a.y + c.y) / 2}}; return; }
     if (ptr.size > 2) return;
@@ -327,7 +338,7 @@ function planSteuerung(svg, key, h){   // h: {start(e,p) → true, wenn eine eig
     if (!ptr.has(e.pointerId)) return; ptr.delete(e.pointerId);
     if (pinch) { if (ptr.size < 2) pinch = null; return; }
     if (eigen) { eigen = false; if (h.ende) h.ende(e, toPlan(svg, e)); return; }
-    if (pan && !bewegt && h.tipp) h.tipp(e, toPlan(svg, e));
+    if (pan && !bewegt && h.tipp) h.tipp(e, toPlan(svg, e), ziel);
     pan = null;
   };
   svg.addEventListener('pointerup', ende); svg.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); pinch = null; pan = null; if (eigen && h.abbruch) h.abbruch(); eigen = false; });
@@ -407,7 +418,8 @@ function zeichneAuftrag(){
   if ($('#alleLeer')) { $('#alleLeer').onclick = () => drucken(alleBlaetter(), true); $('#alleVoll').onclick = () => drucken(alleBlaetter(), false); $('#csv').onclick = csv; }
 }
 const alleBlaetter = () => aktiveVorlagen().flatMap(v => blaetterVon(v.id));
-function neuesBlatt(vid, geschoss){ const b = {id: neueId(), vorlage: vid, geschoss, werte: {}, ink: [], notiz: '', erstellt: jetzt(), zeit: jetzt()}; daten.blaetter.push(b); return b; }
+const fotosVon = b => (b.fotos || []).filter(f => !f.weg);
+function neuesBlatt(vid, geschoss){ const b = {id: neueId(), vorlage: vid, geschoss, werte: {}, ink: [], fotos: [], notiz: '', erstellt: jetzt(), zeit: jetzt()}; daten.blaetter.push(b); return b; }
 
 // ---------- Import: PDF-Seite wählen, Grundriss ausschneiden, Typ + Geschosse ----------
 async function starteImport(datei){
@@ -687,6 +699,8 @@ function zeichneBlatt(){
       <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
         <button class="btn klein" type="button" data-m="ansehen" aria-pressed="${S.modus !== 'stift'}">Ansehen</button>
         <button class="btn klein" type="button" data-m="stift" aria-pressed="${S.modus === 'stift'}">Stift</button>
+        <button class="btn klein" type="button" data-m="foto" aria-pressed="${S.modus === 'foto'}">Foto</button>
+        <input type="file" id="kamera" accept="image/*" capture="environment" hidden>
         ${S.modus === 'stift' ? `<button class="btn klein" type="button" data-f="${ROT}" aria-pressed="${S.farbe === ROT}" style="color:${ROT}">● Rot</button><button class="btn klein" type="button" data-f="#1C5FD1" aria-pressed="${S.farbe === '#1C5FD1'}" style="color:#1C5FD1">● Blau</button><button class="btn klein" type="button" data-f="#111111" aria-pressed="${S.farbe === '#111111'}">● Schwarz</button>
           <button class="btn klein" type="button" id="rueck">Rückgängig</button>` : ''}
         <span class="trenner"></span>${zoomKnoepfe()}<span class="trenner"></span>
@@ -694,7 +708,8 @@ function zeichneBlatt(){
       </div>
       <div class="plan"><svg id="svg" class="${S.modus === 'stift' ? '' : 'pan'}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} ${esc(b.geschoss)}"></svg></div>
       <p class="hint">${S.modus === 'stift' ? 'Mit Stift oder Finger direkt auf den Plan schreiben (z. B. Masse, Notizen). Mit zwei Fingern zoomen. Erkennt das Tablet einen Stift, schiebt der Finger den Plan.'
-        : 'Rote Nummer antippen → Mass unten eingeben (oder Bosch messen). Mit zwei Fingern zoomen und schieben.'}</p>
+        : S.modus === 'foto' ? 'Foto: auf die Stelle im Plan tippen, wo fotografiert wird – die Kamera öffnet sich. Das Foto erscheint als blaues Kamera-Symbol (F1, F2 …); antippen zum Ansehen.'
+        : 'Mass bzw. Linie antippen → Wert unten eingeben (oder Bosch messen). Blaues Kamera-Symbol = Foto ansehen. Mit zwei Fingern zoomen und schieben.'}</p>
     </div>
     <div class="seite">
       <h2 style="margin-top:0">Masse</h2>
@@ -704,6 +719,9 @@ function zeichneBlatt(){
             <td><input id="ist_${l.id}" data-ist="${l.id}" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="${esc(w && w.v != null ? mmTxt(w.v) : '')}" aria-label="Ist-Mass Linie ${l.nr}"></td>
             <td class="diff${d != null && Math.abs(d) > TOL ? ' gross' : ''}" id="d_${l.id}">${d != null ? (d > 0 ? '+' : '') + mmTxt(d) : ''}</td></tr>`; }).join('')}</table>`
         : '<p class="hint">Dieser Plan hat noch keine Masslinien – am PC unter «Masslinien ziehen» anlegen.</p>'}
+      <h2>Fotos</h2>
+      <div class="fotoleiste" id="fotoleiste">${fotosVon(b).length ? '' : '<p class="hint" style="margin:0">Noch keine Fotos. «Foto» wählen und in den Plan tippen.</p>'}</div>
+      <div class="acts"><button class="btn" type="button" id="fotoOhne">Foto ohne Ort</button></div>
       <label for="notiz">Notiz</label><textarea class="field" id="notiz" rows="3" style="min-height:72px">${esc(b.notiz || '')}</textarea>
       <div class="acts"><button class="btn" type="button" id="blattWeg">Blatt löschen</button></div>
       <p class="sync" id="sync">${esc(S.sync)}</p>
@@ -725,12 +743,22 @@ function zeichneBlatt(){
     ende(){ if (!strich) return; if (strich.p.length < 4) strich.p.push(strich.p[0] + 1, strich.p[1] + 1);
       b.ink = b.ink || []; b.ink.push(strich); strich = null; b.zeit = jetzt(); speichern(); malen(); },
     abbruch(){ strich = null; malen(); },
-    tipp(e){ const ml = e.target.closest && e.target.closest('.ml'); if (ml) fokus(ml.dataset.l); }
+    tipp(e, p, ziel){
+      const t = ziel && ziel.closest ? ziel : e.target, fo = t.closest && t.closest('.foto'); if (fo) return grossbild(b, fo.dataset.foto);
+      if (S.modus === 'foto') { S.fotoOrt = {x: Math.round(p.x), y: Math.round(p.y)}; $('#kamera').click(); return; }   // Kamera öffnet (Tippen = Nutzeraktion)
+      const ml = t.closest && t.closest('.ml'); if (ml) fokus(ml.dataset.l); }
   });
   document.querySelectorAll('[data-m]').forEach(k => k.onclick = () => { S.modus = k.dataset.m; zeichneBlatt(); });
   document.querySelectorAll('[data-f]').forEach(k => k.onclick = () => { S.farbe = k.dataset.f; zeichneBlatt(); });
   if ($('#rueck')) $('#rueck').onclick = () => { const s = (b.ink || []).filter(x => !x.weg).slice(-1)[0]; if (!s) return; s.weg = true; s.zeit = b.zeit = jetzt(); speichern(); malen(); };
   $('#zurueck').onclick = () => { S.ansicht = 'auftrag'; S.aktiv = null; zeichne(); };
+  $('#fotoOhne').onclick = () => { S.fotoOrt = null; $('#kamera').click(); };
+  $('#kamera').onchange = async ev => { const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+    const blob = await verkleinern(f), id = neueId(), k = ORDNER + '/' + daten.auftrag.nr + '/foto-' + b.id + '-' + id + '.jpg';
+    await bildSetzen(k, blob); await offenSetzen(k);
+    b.fotos = b.fotos || []; b.fotos.push({id, k, ...(S.fotoOrt || {x: null, y: null}), erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''});
+    b.zeit = jetzt(); speichern(); malen(); zeigeFotoleiste(b); };
+  zeigeFotoleiste(b);
   $('#druckL').onclick = () => drucken([b], true); $('#druckV').onclick = () => drucken([b], false);
   $('#glm').onclick = () => GLM.verbinden();
   $('#notiz').onchange = () => { b.notiz = $('#notiz').value; b.zeit = jetzt(); speichern(); };
@@ -750,6 +778,36 @@ function setzeWert(b, v, lid, wert, malen){
   const i = $('#ist_' + lid); if (i && document.activeElement !== i) i.value = wert != null ? mmTxt(wert) : '';
   const p = fortschritt(b), h = document.querySelector('.top small'); if (h) h.textContent = `${daten.auftrag.nr} ${daten.auftrag.titel || ''} · ${p.g} von ${p.n} gemessen`;
   if (malen) malen();
+}
+// ---------- Fotos am Blatt: verkleinern, Leiste, Grossbild ----------
+async function verkleinern(file){
+  const img = await createImageBitmap(file), f = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+  c.width = Math.round(img.width * f); c.height = Math.round(img.height * f); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(ok => c.toBlob(ok, 'image/jpeg', .8));
+}
+async function zeigeFotoleiste(b){
+  const el = $('#fotoleiste'); if (!el) return; const L = fotosVon(b); if (!L.length) return;
+  el.innerHTML = '';
+  for (const [i, f] of L.entries()) { const u = await bildUrl(f.k);
+    el.insertAdjacentHTML('beforeend', `<button type="button" data-fz="${f.id}" aria-label="Foto F${i + 1} ansehen">${u ? `<img src="${u}" alt="">` : '<span style="position:static">lädt …</span>'}<span>F${i + 1}</span></button>`); }
+  el.querySelectorAll('[data-fz]').forEach(k => k.onclick = () => grossbild(b, k.dataset.fz));
+}
+function grossbild(b, fid){
+  const L = fotosVon(b), i = L.findIndex(x => x.id === fid), f = L[i]; if (!f) return;
+  bildUrl(f.k).then(u => {
+    const blob = bildBlobs[f.k], v = vorlage(b.vorlage), name = ((v ? v.name : 'Plan') + '_' + b.geschoss + '_F' + (i + 1) + '.jpg').replace(/[^\wäöüÄÖÜ.-]+/g, '_');
+    const datei = blob ? new File([blob], name, {type: 'image/jpeg'}) : null, teilen = !!(datei && navigator.canShare && navigator.canShare({files: [datei]}));
+    const d = document.createElement('div'); d.className = 'gross'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Foto F' + (i + 1));
+    d.innerHTML = `<p>F${i + 1} · ${esc(b.geschoss)}${f.x == null ? ' · ohne Ort' : ''}</p>${u ? `<img src="${u}" alt="Foto F${i + 1}">` : '<p>Foto nicht geladen (offline?)</p>'}
+      <div class="acts">${teilen ? '<button class="btn primary" type="button" data-a="teilen">Teilen</button>' : ''}${blob ? '<button class="btn" type="button" data-a="speichern">Speichern</button>' : ''}
+      <button class="btn" type="button" data-a="weg">Löschen</button><button class="btn" type="button" data-a="zu">Schliessen</button></div>`;
+    document.body.appendChild(d);
+    d.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.a;
+      if (a === 'teilen') navigator.share({files: [datei], title: name}).catch(() => {});
+      else if (a === 'speichern') { const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = name; document.body.appendChild(el); el.click(); el.remove(); }
+      else if (a === 'weg') { if (!confirm('Foto F' + (i + 1) + ' löschen?')) return; f.weg = true; f.zeit = b.zeit = jetzt(); speichern(); d.remove(); if (S.ansicht === 'blatt') zeichneBlatt(); }
+      else if (a === 'zu' || ev.target === d) d.remove(); };
+  });
 }
 // Bosch-Messwert → aktive Linie, danach nächste leere
 GLM.beiStatus = () => { const k = $('#glm'); if (k) { k.textContent = GLM.text(); k.classList.toggle('primary', GLM.status === 'ok'); } };
@@ -814,6 +872,21 @@ async function pdfSpeichern(liste, leer){
       let d = 'M ' + pts[0] + ' ' + pts[1]; for (let i = 2; i < pts.length; i += 2) d += ' L ' + pts[i] + ' ' + pts[i + 1];
       page.drawSvgPath(d, {x: ox, y: oy + dh, scale: k, borderColor: farbe(st.f || ROT), borderWidth: Math.max(.4, Math.max(v.w, v.h) / 100 * (v.gr || 1) * (st.d || .16) * k), borderLineCap: LineCapStyle.Round}); }
     if (!leer && b.notiz) page.drawText(sicher(schrift, 'Notiz: ' + b.notiz).slice(0, 220), {x: R, y: R - 14, size: 9, font: schrift});
+    // Fotos: Kamera-Symbol mit F-Nummer im Plan, danach je Blatt Fotoseiten (6 pro Seite)
+    const FO = leer ? [] : fotosVon(b), BL = rgb(28 / 255, 95 / 255, 209 / 255), Fp = Math.max(v.w, v.h) / 100 * (v.gr || 1) * k;
+    FO.forEach((f, i) => { if (f.x == null) return; const cx = X(f.x), cy = Y(f.y), z = Fp * .9;
+      page.drawRectangle({x: cx - z, y: cy - z * .7, width: z * 2, height: z * 1.4, color: BL}); page.drawCircle({x: cx, y: cy, size: z * .42, color: rgb(1, 1, 1)});
+      page.drawCircle({x: cx, y: cy, size: z * .24, color: BL}); page.drawText('F' + (i + 1), {x: cx + z * 1.2, y: cy - Fp * .36, size: Fp, font: fett, color: BL}); });
+    for (let s0 = 0; s0 < FO.length; s0 += 6) {
+      const fp = doc.addPage([W, H]); fp.drawText(sicher(fett, titel + ' – Fotos'), {x: R, y: H - R - 16, size: 16, font: fett});
+      fp.drawLine({start: {x: R, y: H - R - KOPF + 8}, end: {x: W - R, y: H - R - KOPF + 8}, thickness: 1.2});
+      const zw = (W - 2 * R - 2 * 14) / 3, zh = (H - 2 * R - KOPF - 14 - 2 * 16) / 2;
+      for (let j = 0; j < 6 && s0 + j < FO.length; j++) { const f = FO[s0 + j], bl = await blobVon(f.k); if (!bl) continue;
+        const im = await doc.embedJpg(await bl.arrayBuffer()), sk = Math.min(zw / im.width, (zh - 14) / im.height), iw = im.width * sk, ih = im.height * sk;
+        const zx = R + (j % 3) * (zw + 14), zy = R + (1 - Math.floor(j / 3)) * (zh + 16);
+        fp.drawImage(im, {x: zx + (zw - iw) / 2, y: zy + 14 + (zh - 14 - ih) / 2, width: iw, height: ih});
+        fp.drawText('F' + (s0 + j + 1) + (f.x == null ? ' (ohne Ort)' : ''), {x: zx, y: zy, size: 11, font: fett, color: BL}); }
+    }
   }
   if (!doc.getPageCount()) return alert('Keine Blätter.');
   const bytes = await doc.save(), name = 'Planaufmass-' + a.nr + (liste.length === 1 ? '-' + (vorlage(liste[0].vorlage) || {}).name + (liste[0].geschoss ? '-' + liste[0].geschoss : '') : '') + (leer ? '-leer' : '') + '.pdf';
