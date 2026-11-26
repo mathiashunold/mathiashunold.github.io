@@ -123,6 +123,16 @@ const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return nu
 const jetzt = () => new Date().toISOString();
 const zahl = s => { const v = parseFloat(String(s).replace(/[\s’']/g, '').replace(',', '.')); return isFinite(v) ? v : null; };
 const mmTxt = v => v == null || v === '' || isNaN(v) ? '' : String(Math.round(v * 2) / 2).replace('.', ',');
+// Eingabe mit Rechnung (Wunsch Mathias 26.11.): «2400+35-12» → v = 2423, f = «2400+35-12» (Rechnung bleibt zum Nachsehen gespeichert)
+function rechne(s){
+  const t = String(s == null ? '' : s).replace(/[\s’']/g, '').replace(/[−–]/g, '-').replace(/,/g, '.').replace(/[+-]+$/, '');
+  if (!t) return {v: null, f: null};
+  if (/[^0-9.+-]/.test(t)) return {v: zahl(s), f: null};
+  const teile = t.match(/[+-]?[0-9]*\.?[0-9]+/g); if (!teile) return {v: null, f: null};
+  const v = Math.round(teile.reduce((a, x) => a + parseFloat(x), 0) * 10) / 10;
+  return /[0-9.][+-]/.test(t) ? {v, f: t.replace(/\./g, ',')} : {v: zahl(t), f: null};
+}
+const rechnungTxt = w => w && w.f ? w.f.replace(/-/g, ' − ').replace(/\+/g, ' + ') + ' = ' + mmTxt(w.v) : '';
 const neueId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const ROT = '#D0021B', BLAU = '#1C5FD1', TOL = 10;   // mm: Abweichung Ist ↔ Plan, ab der die Differenz rot erscheint
 const token = () => ls.get('upload-schluessel'), repo = () => ls.get('planung-repo');
@@ -332,7 +342,8 @@ function planInhalt(v, b, opt){
   for (const l of linienVon(v, b)) {
     const txt = beschriftung(v, b, l, opt), G = geo(v, l, txt), sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
     const {mx, my, bw, wi} = G, bx = mx - bw / 2;
-    s += `<g class="ml" data-l="${l.id}">
+    const rw = b && b.werte && b.werte[l.id];
+    s += `<g class="ml" data-l="${l.id}">${rw && rw.f && opt.modus !== 'druck' ? `<title>${esc((l.text ? l.text + ': ' : '') + rechnungTxt(rw))}</title>` : ''}
       <line x1="${G.a1x}" y1="${G.a1y}" x2="${G.a2x}" y2="${G.a2y}" stroke="transparent" stroke-width="${F * 1.4}"/>
       ${G.segs.map(q => `<line x1="${q[0]}" y1="${q[1]}" x2="${q[2]}" y2="${q[3]}" stroke="${farbe}" stroke-width="${q[5] && sel ? q[4] * 2 : q[4]}"/>`).join('')}
       <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})">${strichStil() ? `<rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" fill="#fff" fill-opacity=".75"/><line x1="${bx}" y1="${my + G.bh / 2}" x2="${bx + bw}" y2="${my + G.bh / 2}" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw * 1.4}"/>` : `<rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>`}
@@ -443,7 +454,7 @@ function zeichneAuftrag(){
           <div class="acts"><button class="btn primary" type="button" data-vbearb="${v.id}">Masslinien ziehen</button>
             <button class="btn" type="button" data-vdruck="${v.id}">PDF leer</button><button class="btn" type="button" data-vweg="${v.id}">Löschen</button></div>
           <label>Blätter (Geschoss / Wohnung)</label>
-          <div class="blaetter">${bl.map(b => { const p = fortschritt(b); return `<button class="btn${p.g && p.g === p.n ? ' primary' : ''}" type="button" data-blatt="${b.id}">${esc(b.geschoss)} <small>${p.g}/${p.n}</small></button>`; }).join('') || '<span class="hint">Noch keine Blätter.</span>'}</div>
+          <div class="blaetter">${bl.map(b => { const p = fortschritt(b); return `<button class="btn${b.fertig ? ' primary' : ''}" type="button" data-blatt="${b.id}" title="${b.fertig ? 'Abgeschlossen' : 'In Arbeit'}">${b.fertig ? '✓ ' : ''}${esc(b.geschoss)} <small>${p.g}/${p.n}</small></button>`; }).join('') || '<span class="hint">Noch keine Blätter.</span>'}</div>
           <div class="acts"><input class="field" data-gneu="${v.id}" placeholder="z. B. 2. OG" style="flex:1;min-width:120px"><button class="btn" type="button" data-gplus="${v.id}">+ Blatt</button></div>
         </div></div>`; }).join('')}
     ${aktiveVorlagen().length ? `<div class="card"><h2 style="margin-top:0">Alle Blätter</h2>
@@ -452,7 +463,8 @@ function zeichneAuftrag(){
       <div class="acts" style="align-items:center"><span style="font-weight:600">Feld für das Mass:</span>
         <button class="btn klein" type="button" data-stil="kasten" aria-pressed="${!strichStil()}">▭ Kästchen</button><button class="btn klein" type="button" data-stil="strich" aria-pressed="${strichStil()}">＿ Strich</button></div>
       <div class="acts">
-      <button class="btn" type="button" id="alleLeer">Alle leer (PDF)</button><button class="btn" type="button" id="alleVoll">Alle mit Massen (PDF)</button>
+      <p class="hint" style="margin:0">${alleBlaetter().filter(b => b.fertig).length} von ${alleBlaetter().length} Blättern abgeschlossen – «mit Massen» und Excel enthalten nur abgeschlossene.</p></div><div class="acts">
+      <button class="btn" type="button" id="alleLeer">Alle leer (PDF)</button><button class="btn" type="button" id="alleVoll" ${alleBlaetter().some(b => b.fertig) ? '' : 'disabled'}>Abgeschlossene mit Massen (PDF)</button>
       <button class="btn" type="button" id="csv">Masse als Excel/CSV</button></div></div>` : ''}
     <p class="sync" id="sync">${esc(S.sync)}</p>`;
   $('#zurueck').onclick = () => { S.ansicht = 'liste'; daten = null; history.replaceState(null, '', location.pathname); zeichne(); };
@@ -470,7 +482,7 @@ function zeichneAuftrag(){
   document.querySelectorAll('[data-gneu]').forEach(i => i.onkeydown = e => { if (e.key === 'Enter') plus(i.dataset.gneu); });
   document.querySelectorAll('[data-stil]').forEach(k => k.onclick = () => { daten.auftrag.stil = k.dataset.stil; daten.auftrag.zeit = jetzt(); speichern(); zeichneAuftrag(); });
   if ($('#kk')) { const k = f => { kastenAendern(f); $('#kw').textContent = Math.round(kastenFaktor() * 100) + ' %'; }; $('#kk').onclick = () => k(1 / 1.1); $('#kg').onclick = () => k(1.1); }
-  if ($('#alleLeer')) { $('#alleLeer').onclick = () => drucken(alleBlaetter(), true); $('#alleVoll').onclick = () => drucken(alleBlaetter(), false); $('#csv').onclick = csv; }
+  if ($('#alleLeer')) { $('#alleLeer').onclick = () => drucken(alleBlaetter(), true); $('#alleVoll').onclick = () => drucken(alleBlaetter().filter(b => b.fertig), false); $('#csv').onclick = csv; }
 }
 const alleBlaetter = () => aktiveVorlagen().flatMap(v => blaetterVon(v.id));
 const fotosVon = b => (b.fotos || []).filter(f => !f.weg);
@@ -752,7 +764,8 @@ function zeichneBlatt(){
   const L = linienVon(v, b), p = fortschritt(b);
   $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zum Auftrag">‹</button>
       <h1>${esc(v.name)} · ${esc(b.geschoss)}<small>${esc(daten.auftrag.nr)} ${esc(daten.auftrag.titel || '')} · ${p.g} von ${p.n} gemessen</small></h1>
-      <button class="btn" type="button" id="druckL">PDF leer</button><button class="btn" type="button" id="druckV">PDF mit Massen</button></div>
+      <button class="btn${b.fertig ? ' primary' : ''}" type="button" id="fertigKn" aria-pressed="${!!b.fertig}">${b.fertig ? '✓ Abgeschlossen' : 'Abschliessen'}</button>
+      <button class="btn" type="button" id="druckL">PDF leer</button><button class="btn" type="button" id="druckV" ${b.fertig ? '' : 'disabled title="Zuerst abschliessen"'}>PDF mit Massen</button></div>
     <div class="layout${listeZeigen() ? '' : ' ohneListe'}"><div>
       <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
         <button class="btn klein" type="button" data-m="ansehen" aria-pressed="${S.modus !== 'stift' && S.modus !== 'foto'}">Masse eintragen</button>
@@ -779,7 +792,7 @@ function zeichneBlatt(){
       ${L.length ? `<table class="masse"><tr><th>Nr.</th><th>Bezeichnung</th><th class="soll">Plan</th><th style="text-align:right">Ist mm</th><th class="diff">Diff.</th></tr>
         ${L.map(l => { const w = b.werte[l.id], so = soll(v, l), d = w && w.v != null && so != null ? w.v - so : null;
           return `<tr data-zl="${l.id}" class="${l.id === S.aktiv ? 'aktiv' : ''}"><td><span class="nr">${l.nr}</span></td><td>${esc(l.text || '')}</td><td class="soll">${so != null ? so : ''}</td>
-            <td><input id="ist_${l.id}" data-ist="${l.id}" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="${esc(w && w.v != null ? mmTxt(w.v) : '')}" aria-label="Ist-Mass Linie ${l.nr}"></td>
+            <td><input id="ist_${l.id}" data-ist="${l.id}" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="${esc(w && w.f ? w.f : (w && w.v != null ? mmTxt(w.v) : ''))}" title="${esc(rechnungTxt(w))}" aria-label="Ist-Mass Linie ${l.nr}">${w && w.f ? `<small class="hint" style="display:block;text-align:right;margin:0">= ${mmTxt(w.v)}</small>` : ''}</td>
             <td class="diff${d != null && Math.abs(d) > TOL ? ' gross' : ''}" id="d_${l.id}">${d != null ? (d > 0 ? '+' : '') + mmTxt(d) : ''}</td></tr>`; }).join('')}</table>`
         : '<p class="hint">Dieser Plan hat noch keine Masslinien – am PC unter «Masslinien ziehen» anlegen.</p>'}</div>
       <h2>Fotos</h2>
@@ -871,21 +884,24 @@ function zeichneBlatt(){
     b.zeit = jetzt(); speichern(); malen(); zeigeFotoleiste(b); };
   zeigeFotoleiste(b);
   if (S.oeffne) { const id = S.oeffne; S.oeffne = null; eingabe(b, v, id, false, malen); }   // neue Masslinie: gleich Bezeichnung + Mass eintragen
-  $('#druckL').onclick = () => drucken([b], true); $('#druckV').onclick = () => drucken([b], false);
+  $('#druckL').onclick = () => drucken([b], true); $('#druckV').onclick = () => { if (b.fertig) drucken([b], false); };
+  $('#fertigKn').onclick = () => { if (b.fertig) { if (!confirm('Blatt «' + b.geschoss + '» wieder öffnen?')) return; b.fertig = null; }
+    else { const p = fortschritt(b); if (p.g < p.n && !confirm('Erst ' + p.g + ' von ' + p.n + ' Massen erfasst. Trotzdem abschliessen?')) return; b.fertig = {zeit: jetzt(), von: ls.get('kuerzel') || ''}; }
+    eingabeZu(); b.zeit = jetzt(); merkeIndex(); speichern(); zeichneBlatt(); };
   $('#glm').onclick = () => GLM.verbinden();
   $('#notiz').onchange = () => { b.notiz = $('#notiz').value; b.zeit = jetzt(); speichern(); };
   $('#blattWeg').onclick = () => { if (!confirm('Blatt «' + b.geschoss + '» löschen?')) return; b.weg = true; b.zeit = jetzt(); merkeIndex(); speichern(); S.ansicht = 'auftrag'; zeichne(); };
   document.querySelectorAll('tr[data-zl]').forEach(r => r.onclick = ev => { if (ev.target.tagName !== 'INPUT') fokus(r.dataset.zl); });
   document.querySelectorAll('[data-ist]').forEach(i => {
     i.onfocus = () => { if (S.aktiv !== i.dataset.ist) { S.aktiv = i.dataset.ist; document.querySelectorAll('tr[data-zl]').forEach(r => r.classList.toggle('aktiv', r.dataset.zl === S.aktiv)); malen(); } };
-    i.onchange = i.oninput = () => { const z = zahl(i.value), jw = b.werte[i.dataset.ist]; if (z !== (jw && jw.v != null ? jw.v : null)) setzeWert(b, v, i.dataset.ist, z, malen); };
+    i.onchange = i.oninput = () => { const r = rechne(i.value), jw = b.werte[i.dataset.ist]; if (r.v !== (jw && jw.v != null ? jw.v : null) || (r.f || null) !== ((jw && jw.f) || null)) setzeWert(b, v, i.dataset.ist, r.v, malen, r.f); };
     i.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); i.dispatchEvent(new Event('change'));
       const k = L.findIndex(l => l.id === i.dataset.ist), n = L[k + 1]; if (n) fokus(n.id); else i.blur(); };
   });
 }
 function kopfNeu(b){ const p = fortschritt(b), h = document.querySelector('.top small'); if (h && S.ansicht === 'blatt') h.textContent = `${daten.auftrag.nr} ${daten.auftrag.titel || ''} · ${p.g} von ${p.n} gemessen`; }
-function setzeWert(b, v, lid, wert, malen){
-  b.werte[lid] = {v: wert, zeit: jetzt(), von: ls.get('kuerzel') || ''}; b.zeit = jetzt(); merkeIndex(); speichern();
+function setzeWert(b, v, lid, wert, malen, formel){
+  b.werte[lid] = {v: wert, ...(formel ? {f: formel} : {}), zeit: jetzt(), von: ls.get('kuerzel') || ''}; b.zeit = jetzt(); merkeIndex(); speichern();
   const l = linienVon(v, b).find(x => x.id === lid), so = l && soll(v, l), d = wert != null && so != null ? wert - so : null, el = $('#d_' + lid);
   if (el) { el.textContent = d != null ? (d > 0 ? '+' : '') + mmTxt(d) : ''; el.classList.toggle('gross', d != null && Math.abs(d) > TOL); }
   const i = $('#ist_' + lid); if (i && document.activeElement !== i) i.value = wert != null ? mmTxt(wert) : '';
@@ -913,8 +929,10 @@ function eingabe(b, v, lid, stift, malen){
   d.innerHTML = `<div class="kopf"><b>${l.art === 'h' ? 'H: ' : ''}${esc(l.text || 'Mass ' + l.nr)}</b><span>${i + 1} von ${L.length}${so != null ? ' · Plan ' + so : ''}</span>
       <button class="btn klein" type="button" data-e="zu" aria-label="Schliessen">✕</button></div>
     ${zusatzLinie(b, lid) ? `<div class="zeile"><input id="eText" class="field" style="font-size:18px;min-height:44px" placeholder="Bezeichnung (z. B. Nische Breite)" value="${esc(l.text || '')}" aria-label="Bezeichnung der neuen Masslinie"></div>` : ''}
-    <div class="zeile"><input id="eWert" inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="mm eintippen" value="${esc(w && w.v != null ? mmTxt(w.v) : '')}" aria-label="Mass in mm">
+    <div class="zeile"><input id="eWert" inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="mm eintippen (auch 2400+35−12)" value="${esc(w && w.f ? w.f : (w && w.v != null ? mmTxt(w.v) : ''))}" aria-label="Mass in mm, Rechnung mit plus und minus möglich">
+      <button class="btn" type="button" data-e="plus" aria-label="Plus" style="font-size:24px;min-width:52px">+</button><button class="btn" type="button" data-e="minus" aria-label="Minus" style="font-size:24px;min-width:52px">−</button>
       ${GLM.status === 'ok' ? '<span class="hint" style="align-self:center">Bosch bereit</span>' : ''}</div>
+    <p class="hint" id="eErg" style="margin:4px 0 0;text-align:right;font-weight:700;font-size:17px">${esc(rechnungTxt(w))}</p>
     <canvas id="ePad" aria-label="Schreibfeld für den Stift"></canvas>
     <div class="acts" style="align-items:center"><span class="hint" style="margin:0">Stift:</span>${dickeKnoepfe()}</div>
     <div class="acts">${zusatzLinie(b, lid) ? '<button class="btn" type="button" data-e="schieben">Verschieben</button><button class="btn" type="button" data-e="linieWeg">Linie löschen</button>' : ''}<button class="btn" type="button" data-e="leer">Schrift löschen</button><button class="btn" type="button" data-e="vor" ${i ? '' : 'disabled'}>‹ Zurück</button>
@@ -935,13 +953,16 @@ function eingabe(b, v, lid, stift, malen){
   c.onpointerup = c.onpointercancel = () => { if (!akt) return; if (akt.length < 4) akt.push(akt[0] + .003, akt[1]); striche.push(akt); akt = null; zeichnePad(); speichereHand(); };
   const inp = $('#eWert'), et = $('#eText');
   if (et) et.oninput = () => { l.text = et.value; l.zeit = b.zeit = jetzt(); speichern(); };
-  const uebernehmen = () => { const z = zahl(inp.value), jw = b.werte[lid], alt = jw && jw.v != null ? jw.v : null; if (z !== alt) setzeWert(b, v, lid, z, malen); };
+  const uebernehmen = () => { const r = rechne(inp.value), jw = b.werte[lid], alt = jw && jw.v != null ? jw.v : null;
+    const e = $('#eErg'); if (e) e.textContent = r.f ? rechnungTxt({v: r.v, f: r.f}) : '';
+    if (r.v !== alt || (r.f || null) !== ((jw && jw.f) || null)) setzeWert(b, v, lid, r.v, malen, r.f); };
   S.eingabeSichern = uebernehmen;
   const gehe = k => { uebernehmen(); S.eingabeSichern = null; const n = L[i + k]; if (n) eingabe(b, v, n.id, stift, malen); else { eingabeZu(); S.aktiv = null; if (malen) malen(); } };
   inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); gehe(1); } };
   inp.onchange = uebernehmen; inp.oninput = uebernehmen;   // jede Ziffer sofort speichern (Android-Tastatur löst «change» oft nicht aus)
   d.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.e;
     if (a === 'zu') { eingabeZu(); S.aktiv = null; if (malen) malen(); }
+    else if (a === 'plus' || a === 'minus') { inp.value = inp.value.replace(/[+\-−\s]+$/, '') + (a === 'plus' ? '+' : '-'); inp.focus({preventScroll: true}); }
     else if (a === 'leer') { striche = []; zeichnePad(); speichereHand(); }
     else if (a === 'schieben') { uebernehmen(); d.hidden = true; S.aktiv = lid; if (malen) malen();
       const k = document.createElement('div'); k.className = 'schiebeleiste'; k.innerHTML = '<span>Runde Griffe = Endpunkte, blaues Quadrat = Masslinie wegziehen</span><button class="btn primary" type="button">Fertig</button>';
@@ -1100,9 +1121,10 @@ async function druckenHtml(liste, leer){
   w.document.close();
 }
 function csv(){
-  const zeilen = [['Plan', 'Blatt', 'Nr', 'Bezeichnung', 'Plan mm', 'Ist mm', 'Differenz', 'Gemessen', 'Von']];
-  for (const v of aktiveVorlagen()) for (const b of blaetterVon(v.id)) for (const l of linienVon(v, b)) { const x = b.werte[l.id], so = soll(v, l);
-    zeilen.push([v.name, b.geschoss, l.nr, l.text || '', so != null ? so : '', x && x.v != null ? mmTxt(x.v) : (handVon(b, l.id) ? 'handschriftlich' : ''), x && x.v != null && so != null ? mmTxt(x.v - so) : '',
+  const zeilen = [['Plan', 'Blatt', 'Nr', 'Bezeichnung', 'Plan mm', 'Ist mm', 'Rechnung', 'Differenz', 'Gemessen', 'Von']];
+  if (!alleBlaetter().some(b => b.fertig)) return alert('Noch kein Blatt abgeschlossen. Im Blatt «Abschliessen» antippen – exportiert werden nur abgeschlossene Blätter.');
+  for (const v of aktiveVorlagen()) for (const b of blaetterVon(v.id).filter(b => b.fertig)) for (const l of linienVon(v, b)) { const x = b.werte[l.id], so = soll(v, l);
+    zeilen.push([v.name, b.geschoss, l.nr, l.text || '', so != null ? so : '', x && x.v != null ? mmTxt(x.v) : (handVon(b, l.id) ? 'handschriftlich' : ''), x && x.f ? x.f : '', x && x.v != null && so != null ? mmTxt(x.v - so) : '',
       x && x.zeit ? new Date(x.zeit).toLocaleString('de-CH') : '', x && x.von || '']); }
   const text = '﻿' + zeilen.map(z => z.map(f => /[;"\n]/.test(String(f)) ? '"' + String(f).replace(/"/g, '""') + '"' : f).join(';')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv'})); a.download = 'Planaufmass-' + daten.auftrag.nr + '.csv'; document.body.appendChild(a); a.click(); a.remove();
