@@ -95,6 +95,7 @@ table.masse .diff.gross{color:var(--warn);font-weight:700}
 <body>
 <main id="app"></main>
 <script src="lib/pdf.min.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
 <script src="glm.js"></script>
 <script>
 // Planaufmass (Beta): Grundrisse (PDF/Bild) hochladen, am PC rote Masslinien ziehen, je Typ und Geschoss ein leeres Blatt;
@@ -247,34 +248,41 @@ function soll(v, l){ if (l.soll != null && l.soll !== '') return +l.soll; const 
 function nummeriere(v){ linienVon(v).forEach((l, i) => { l.nr = i + 1; }); }
 
 // ---------- Plan zeichnen (SVG in Bildpunkten des Plans) – gemeinsam für Bearbeiten, Blatt und Druck ----------
-function planInhalt(v, b, opt){
+// Geometrie einer Masslinie in Bildpunkten: Messpunkte P1/P2 bleiben, die Masslinie liegt um «ab» (entlang n) daneben, Hilfslinien verbinden beide
+function geo(v, l, txt){
   const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
+  const L = laenge(l) || 1, ux = (l.x2 - l.x1) / L, uy = (l.y2 - l.y1) / L, nx = -uy, ny = ux, ab = l.ab || 0;
+  const a1x = l.x1 + nx * ab, a1y = l.y1 + ny * ab, a2x = l.x2 + nx * ab, a2y = l.y2 + ny * ab;
+  let sx = nx, sy = ny;                                                              // Seite der Beschriftung: weg vom Bauteil
+  if (ab < 0 || (!ab && (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)))) { sx = -nx; sy = -ny; }
+  const t = F * .4, segs = [];
+  if (Math.abs(ab) > F * .3) for (const [x, y] of [[l.x1, l.y1], [l.x2, l.y2]]) { const g = F * .25, u = F * .4, k = ab > 0 ? 1 : -1;
+    segs.push([x + nx * g * k, y + ny * g * k, x + nx * (ab + u * k), y + ny * (ab + u * k), sw * .8]); }
+  segs.push([a1x - ux * t * .6, a1y - uy * t * .6, a2x + ux * t * .6, a2y + uy * t * .6, sw, 'haupt']);
+  for (const [x, y] of [[a1x, a1y], [a2x, a2y]]) segs.push([x + (ux - nx) * t * .7, y + (uy - ny) * t * .7, x - (ux - nx) * t * .7, y - (uy - ny) * t * .7, sw * 1.4]);
+  let wi = Math.atan2(uy, ux) * 180 / Math.PI; if (wi > 89.9) wi -= 180; if (wi <= -90.1) wi += 180;   // Zahl parallel zur Masslinie, lesbar von unten bzw. rechts
+  return {F, sw, segs, a1x, a1y, a2x, a2y, mx: (a1x + a2x) / 2 + sx * F * 1.15, my: (a1y + a2y) / 2 + sy * F * 1.15, wi,
+    bw: Math.max(F * 3.6, ((txt || '').length * .58 + 1) * F), bh: F * 1.56, fs: F * 1.05};
+}
+function beschriftung(v, b, l, opt){
+  const w = b && b.werte && b.werte[l.id], wert = w && w.v != null ? mmTxt(w.v) : '', so = soll(v, l);
+  return opt.modus === 'vorlage' ? (so != null ? '≈ ' + so : '') : (opt.leer ? '' : wert);
+}
+function planInhalt(v, b, opt){
+  const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = Math.max(1.5, F * .035);
   let s = opt.url ? `<image href="${opt.url}" x="0" y="0" width="${v.w}" height="${v.h}"/>` : `<rect width="${v.w}" height="${v.h}" fill="#fff"/>`;
   for (const l of linienVon(v)) {
-    // Messpunkte P1/P2 bleiben; die Masslinie liegt um «ab» (Bildpunkte, entlang der Normalen n) daneben, Hilfslinien verbinden beide
-    const L = laenge(l) || 1, ux = (l.x2 - l.x1) / L, uy = (l.y2 - l.y1) / L, nx = -uy, ny = ux, ab = l.ab || 0;
-    const a1x = l.x1 + nx * ab, a1y = l.y1 + ny * ab, a2x = l.x2 + nx * ab, a2y = l.y2 + ny * ab;
-    let sx = nx, sy = ny;                                                            // Seite der Beschriftung: weg vom Bauteil
-    if (ab < 0 || (!ab && (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)))) { sx = -nx; sy = -ny; }
-    const t = F * .4, mx = (a1x + a2x) / 2 + sx * F * 1.15, my = (a1y + a2y) / 2 + sy * F * 1.15;
-    const sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
-    const w = b && b.werte && b.werte[l.id], wert = w && w.v != null ? mmTxt(w.v) : '';
-    const so = soll(v, l), txt = opt.modus === 'vorlage' ? (so != null ? '≈ ' + so : '') : (opt.leer ? '' : wert);
-    const bw = Math.max(F * 3.6, (txt.length * .58 + 1) * F), bx = mx - bw / 2;
-    let wi = Math.atan2(uy, ux) * 180 / Math.PI; if (wi > 89.9) wi -= 180; if (wi <= -90.1) wi += 180;   // Zahl parallel zur Masslinie, lesbar von unten bzw. rechts
-    const hl = Math.abs(ab) > F * .3 ? [[l.x1, l.y1], [l.x2, l.y2]].map(([x, y]) => { const g = F * .25, u = F * .4, k = ab > 0 ? 1 : -1;
-      return `<line x1="${x + nx * g * k}" y1="${y + ny * g * k}" x2="${x + nx * (ab + u * k)}" y2="${y + ny * (ab + u * k)}" stroke="${farbe}" stroke-width="${sw * .8}"/>`; }).join('') : '';
-    const strich = (x, y) => `<line x1="${x + (ux - nx) * t * .7}" y1="${y + (uy - ny) * t * .7}" x2="${x - (ux - nx) * t * .7}" y2="${y - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw * 1.4}"/>`;
+    const txt = beschriftung(v, b, l, opt), G = geo(v, l, txt), sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
+    const {mx, my, bw, wi} = G, bx = mx - bw / 2;
     s += `<g class="ml" data-l="${l.id}">
-      <line x1="${a1x}" y1="${a1y}" x2="${a2x}" y2="${a2y}" stroke="transparent" stroke-width="${F * 1.4}"/>
-      ${hl}<line x1="${a1x - ux * t * .6}" y1="${a1y - uy * t * .6}" x2="${a2x + ux * t * .6}" y2="${a2y + uy * t * .6}" stroke="${farbe}" stroke-width="${sel ? sw * 2 : sw}"/>
-      ${strich(a1x, a1y)}${strich(a2x, a2y)}
-      <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})"><rect x="${bx}" y="${my - F * .78}" width="${bw}" height="${F * 1.56}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
-      <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${F * 1.05}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text></g>
+      <line x1="${G.a1x}" y1="${G.a1y}" x2="${G.a2x}" y2="${G.a2y}" stroke="transparent" stroke-width="${F * 1.4}"/>
+      ${G.segs.map(q => `<line x1="${q[0]}" y1="${q[1]}" x2="${q[2]}" y2="${q[3]}" stroke="${farbe}" stroke-width="${q[5] && sel ? q[4] * 2 : q[4]}"/>`).join('')}
+      <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})"><rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
+      <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${G.fs}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text></g>
     </g>`;
     if (opt.modus === 'vorlage' && sel) s += [[l.x1, l.y1, 1], [l.x2, l.y2, 2]].map(([x, y, e]) =>
       `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .55}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
-      + `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(a1x + a2x) / 2 - F * .5}" y="${(a1y + a2y) / 2 - F * .5}" width="${F}" height="${F}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`;
+      + `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(G.a1x + G.a2x) / 2 - F * .5}" y="${(G.a1y + G.a2y) / 2 - F * .5}" width="${F}" height="${F}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`;
   }
   if (b) for (const st of (b.ink || []).filter(x => !x.weg)) s += `<polyline points="${st.p.join(' ')}" fill="none" stroke="${st.f || ROT}" stroke-width="${F * (st.d || .16)}" stroke-linecap="round" stroke-linejoin="round"/>`;
   if (opt.vorschau) s += opt.vorschau;
@@ -368,13 +376,13 @@ function zeichneAuftrag(){
         <div><input class="field" data-vname="${v.id}" value="${esc(v.name)}" aria-label="Name des Plans" style="font-weight:700">
           <p class="hint">${linienVon(v).length} Masslinien · ${f ? (v.kalib ? 'Massstab eingemessen' : 'Massstab 1:' + v.massstab) : 'ohne Massstab'}${v.quelle ? ' · ' + esc(v.quelle) : ''}</p>
           <div class="acts"><button class="btn primary" type="button" data-vbearb="${v.id}">Masslinien ziehen</button>
-            <button class="btn" type="button" data-vdruck="${v.id}">Leer drucken</button><button class="btn" type="button" data-vweg="${v.id}">Löschen</button></div>
+            <button class="btn" type="button" data-vdruck="${v.id}">PDF leer</button><button class="btn" type="button" data-vweg="${v.id}">Löschen</button></div>
           <label>Blätter (Geschoss / Wohnung)</label>
           <div class="blaetter">${bl.map(b => { const p = fortschritt(b); return `<button class="btn${p.g && p.g === p.n ? ' primary' : ''}" type="button" data-blatt="${b.id}">${esc(b.geschoss)} <small>${p.g}/${p.n}</small></button>`; }).join('') || '<span class="hint">Noch keine Blätter.</span>'}</div>
           <div class="acts"><input class="field" data-gneu="${v.id}" placeholder="z. B. 2. OG" style="flex:1;min-width:120px"><button class="btn" type="button" data-gplus="${v.id}">+ Blatt</button></div>
         </div></div>`; }).join('')}
     ${aktiveVorlagen().length ? `<div class="card"><h2 style="margin-top:0">Alle Blätter</h2><div class="acts">
-      <button class="btn" type="button" id="alleLeer">Alle leer drucken</button><button class="btn" type="button" id="alleVoll">Alle mit Massen drucken</button>
+      <button class="btn" type="button" id="alleLeer">Alle leer (PDF)</button><button class="btn" type="button" id="alleVoll">Alle mit Massen (PDF)</button>
       <button class="btn" type="button" id="csv">Masse als Excel/CSV</button></div></div>` : ''}
     <p class="sync" id="sync">${esc(S.sync)}</p>`;
   $('#zurueck').onclick = () => { S.ansicht = 'liste'; daten = null; history.replaceState(null, '', location.pathname); zeichne(); };
@@ -402,7 +410,7 @@ async function starteImport(datei){
     if (/pdf$/i.test(datei.type) || /\.pdf$/i.test(datei.name)) {
       if (!window.pdfjsLib) throw new Error('PDF-Leser fehlt');
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
-      S.imp.pdf = await pdfjsLib.getDocument({data: await datei.arrayBuffer()}).promise;
+      I.file = datei; S.imp.pdf = await pdfjsLib.getDocument({data: await datei.arrayBuffer()}).promise;
       for (let n = 1; n <= S.imp.pdf.numPages; n++) {
         if (S.ansicht !== 'import' || S.imp !== I) return;
         const page = await S.imp.pdf.getPage(n), vp1 = page.getViewport({scale: 1}), sc = 260 / vp1.width, vp = page.getViewport({scale: sc});
@@ -478,12 +486,24 @@ function zeichneImport(){
       const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
       if (I.pdf) { const page = await I.pdf.getPage(s.n); await page.render({canvasContext: ctx, viewport: page.getViewport({scale: sc, offsetX: -r.x * sc, offsetY: -r.y * sc})}).promise; }
       else ctx.drawImage(I.bild, r.x, r.y, r.w, r.h, 0, 0, cv.width, cv.height);
-      const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .86));
+      const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .92));
       const id = neueId(), key = ORDNER + '/' + daten.auftrag.nr + '/' + id + '.jpg';
       await bildSetzen(key, blob); await offenSetzen(key);
       const name = $('#iName').value.trim() || s.name, ms = zahl($('#iMs').value);
+      let vek = null;   // Originalseite als Vektor-PDF (nur diese Seite) → scharfe PDF-Ausgabe; Ausschnitt in PDF-Koordinaten (y nach oben)
+      if (I.pdf && window.PDFLib) try {
+        st.textContent = 'Planseite wird als Vektor-PDF gespeichert …';
+        const page = await I.pdf.getPage(s.n), vw = page.view;
+        if (!page.rotate) {
+          if (!I.lib) I.lib = await PDFLib.PDFDocument.load(await I.file.arrayBuffer(), {ignoreEncryption: true});
+          const d = await PDFLib.PDFDocument.create(), [pg] = await d.copyPages(I.lib, [s.n - 1]); d.addPage(pg);
+          const pk = ORDNER + '/' + daten.auftrag.nr + '/' + id + '.pdf';
+          await bildSetzen(pk, new Blob([await d.save()], {type: 'application/pdf'})); await offenSetzen(pk);
+          vek = {pdf: pk, aus: {x0: vw[0] + r.x, y0: vw[3] - r.y - r.h, x1: vw[0] + r.x + r.w, y1: vw[3] - r.y}};
+        }
+      } catch(e) { vek = null; }
       const v = {id, name, bild: key, w: cv.width, h: cv.height, ptProPx: I.pdf ? 1 / sc : null, massstab: I.pdf && ms ? ms : null, kalib: null, gr: 1,
-        quelle: I.datei + (I.pdf ? ', Seite ' + s.n : ''), linien: [], erstellt: jetzt(), zeit: jetzt()};
+        quelle: I.datei + (I.pdf ? ', Seite ' + s.n : ''), linien: [], erstellt: jetzt(), zeit: jetzt(), ...(vek || {})};
       daten.vorlagen.push(v);
       for (const g of $('#iGesch').value.split(/[,;]+/).map(x => x.trim()).filter(Boolean)) neuesBlatt(id, g);
       if (!blaetterVon(id).length) neuesBlatt(id, 'Blatt 1');
@@ -649,7 +669,7 @@ function zeichneBlatt(){
   const L = linienVon(v), p = fortschritt(b);
   $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zum Auftrag">‹</button>
       <h1>${esc(v.name)} · ${esc(b.geschoss)}<small>${esc(daten.auftrag.nr)} ${esc(daten.auftrag.titel || '')} · ${p.g} von ${p.n} gemessen</small></h1>
-      <button class="btn" type="button" id="druckL">Leer drucken</button><button class="btn" type="button" id="druckV">Drucken</button></div>
+      <button class="btn" type="button" id="druckL">PDF leer</button><button class="btn" type="button" id="druckV">PDF mit Massen</button></div>
     <div class="layout"><div>
       <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
         <button class="btn klein" type="button" data-m="ansehen" aria-pressed="${S.modus !== 'stift'}">Ansehen</button>
@@ -730,6 +750,63 @@ GLM.beiWert = w => {
 
 // ---------- Drucken (leer zum Ausfüllen von Hand oder mit Massen) ----------
 async function drucken(liste, leer){
+  if (window.PDFLib) return pdfSpeichern(liste, leer).catch(e => { alert('PDF konnte nicht erstellt werden (' + e.message + '). Es öffnet sich die Druckansicht.'); return druckenHtml(liste, leer); });
+  return druckenHtml(liste, leer);
+}
+async function blobVon(k){ await bildUrl(k); return bildBlobs[k] || null; }
+// PDF in Vektorqualität: Originalplan als eingebettete PDF-Seite (Ausschnitt), Masslinien/Zahlen/Striche als Vektoren; A3 quer
+async function pdfSpeichern(liste, leer){
+  const {PDFDocument, StandardFonts, rgb, degrees, LineCapStyle} = PDFLib;
+  const doc = await PDFDocument.create(), schrift = await doc.embedFont(StandardFonts.Helvetica), fett = await doc.embedFont(StandardFonts.HelveticaBold);
+  const ROTp = rgb(208 / 255, 2 / 255, 27 / 255), farbe = h => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
+  const sicher = (f, t) => Array.from(String(t || '')).map(c => { try { f.encodeText(c); return c; } catch(e) { return c === '≈' ? '~' : '?'; } }).join('');
+  const a = daten.auftrag, datum = new Date().toLocaleDateString('de-CH'), plaene = {};
+  doc.setTitle('Planaufmass ' + a.nr); doc.setCreator('3D-Werkstatt Planaufmass');
+  const W = 1190.55, H = 841.89, R = 22, KOPF = 30;   // A3 quer, Rand, Kopfzeile (pt)
+  for (const b of liste) {
+    const v = vorlage(b.vorlage); if (!v) continue;
+    if (!plaene[v.id]) {
+      let p = null;
+      if (v.pdf && v.aus) { const bl = await blobVon(v.pdf); if (bl) { const src = await PDFDocument.load(await bl.arrayBuffer(), {ignoreEncryption: true});
+        p = {seite: await doc.embedPage(src.getPage(0), {left: v.aus.x0, bottom: v.aus.y0, right: v.aus.x1, top: v.aus.y1})}; } }
+      if (!p) { const bl = await blobVon(v.bild); if (!bl) throw new Error('Plan «' + v.name + '» nicht geladen'); p = {bild: await doc.embedJpg(await bl.arrayBuffer())}; }
+      plaene[v.id] = p;
+    }
+    const P = plaene[v.id], page = doc.addPage([W, H]);
+    const bw = W - 2 * R, bh = H - 2 * R - KOPF, k = Math.min(bw / v.w, bh / v.h), dw = v.w * k, dh = v.h * k, ox = R + (bw - dw) / 2, oy = R + (bh - dh) / 2;
+    const X = x => ox + x * k, Y = y => oy + dh - y * k;
+    // Kopfzeile
+    const titel = sicher(fett, v.name + (b.geschoss ? ' · ' + b.geschoss : ''));
+    page.drawText(titel, {x: R, y: H - R - 16, size: 16, font: fett});
+    const von = Object.values(b.werte || {}).map(x => x.von).filter(Boolean)[0] || '';
+    const rechts = sicher(schrift, 'Auftrag ' + a.nr + ' ' + (a.titel || '') + '     Datum: ' + (leer ? '__________' : datum) + '     Gemessen von: ' + (leer ? '______________' : von));
+    page.drawText(rechts, {x: W - R - schrift.widthOfTextAtSize(rechts, 10), y: H - R - 14, size: 10, font: schrift});
+    page.drawLine({start: {x: R, y: H - R - KOPF + 8}, end: {x: W - R, y: H - R - KOPF + 8}, thickness: 1.2});
+    // Plan
+    if (P.seite) page.drawPage(P.seite, {x: ox, y: oy, width: dw, height: dh}); else page.drawImage(P.bild, {x: ox, y: oy, width: dw, height: dh});
+    page.drawRectangle({x: ox, y: oy, width: dw, height: dh, borderColor: rgb(.6, .6, .6), borderWidth: .5});
+    // Masslinien
+    for (const l of linienVon(v)) {
+      const txt = sicher(fett, beschriftung(v, b, l, {modus: 'druck', leer})), G = geo(v, l, txt);
+      for (const q of G.segs) page.drawLine({start: {x: X(q[0]), y: Y(q[1])}, end: {x: X(q[2]), y: Y(q[3])}, thickness: Math.max(q[5] ? .5 : .35, q[4] * k), color: ROTp});   // Druck: mind. 0,18 mm bzw. 0,12 mm
+      const th = -G.wi * Math.PI / 180, c = Math.cos(th), s2 = Math.sin(th), cx = X(G.mx), cy = Y(G.my), hw = G.bw * k / 2, hh = G.bh * k / 2;
+      page.drawRectangle({x: cx + (-hw) * c - (-hh) * s2, y: cy + (-hw) * s2 + (-hh) * c, width: hw * 2, height: hh * 2, rotate: degrees(-G.wi),
+        color: rgb(1, 1, 1), opacity: .93, borderColor: ROTp, borderWidth: Math.max(.25, G.sw * k)});
+      if (txt) { const fs = G.fs * k, tw = fett.widthOfTextAtSize(txt, fs), lx = -tw / 2, ly = -fs * .36;
+        page.drawText(txt, {x: cx + lx * c - ly * s2, y: cy + lx * s2 + ly * c, size: fs, font: fett, rotate: degrees(-G.wi), color: rgb(.07, .07, .07)}); }
+    }
+    // Stift-Einträge
+    if (!leer) for (const st of (b.ink || []).filter(x => !x.weg)) { const pts = st.p; if (pts.length < 4) continue;
+      let d = 'M ' + pts[0] + ' ' + pts[1]; for (let i = 2; i < pts.length; i += 2) d += ' L ' + pts[i] + ' ' + pts[i + 1];
+      page.drawSvgPath(d, {x: ox, y: oy + dh, scale: k, borderColor: farbe(st.f || ROT), borderWidth: Math.max(.4, Math.max(v.w, v.h) / 100 * (v.gr || 1) * (st.d || .16) * k), borderLineCap: LineCapStyle.Round}); }
+    if (!leer && b.notiz) page.drawText(sicher(schrift, 'Notiz: ' + b.notiz).slice(0, 220), {x: R, y: R - 14, size: 9, font: schrift});
+  }
+  if (!doc.getPageCount()) return alert('Keine Blätter.');
+  const bytes = await doc.save(), name = 'Planaufmass-' + a.nr + (liste.length === 1 ? '-' + (vorlage(liste[0].vorlage) || {}).name + (liste[0].geschoss ? '-' + liste[0].geschoss : '') : '') + (leer ? '-leer' : '') + '.pdf';
+  const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'})); el.download = name.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue').replace(/[^A-Za-z0-9.-]+/g, '_');
+  document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(el.href), 30000);
+}
+async function druckenHtml(liste, leer){
   const w = window.open('', '_blank'); if (!w) return alert('Bitte Pop-ups für diese Seite erlauben.');
   w.document.write('<p style="font:14px system-ui">Blätter werden vorbereitet …</p>');
   const urls = {};
