@@ -261,6 +261,7 @@ function planInhalt(v, b, opt){
     const w = b && b.werte && b.werte[l.id], wert = w && w.v != null ? mmTxt(w.v) : '';
     const so = soll(v, l), txt = opt.modus === 'vorlage' ? (so != null ? '≈ ' + so : '') : (opt.leer ? '' : wert);
     const bw = Math.max(F * 3.6, (txt.length * .58 + 1) * F), bx = mx - bw / 2;
+    let wi = Math.atan2(uy, ux) * 180 / Math.PI; if (wi > 89.9) wi -= 180; if (wi <= -90.1) wi += 180;   // Zahl parallel zur Masslinie, lesbar von unten bzw. rechts
     const hl = Math.abs(ab) > F * .3 ? [[l.x1, l.y1], [l.x2, l.y2]].map(([x, y]) => { const g = F * .25, u = F * .4, k = ab > 0 ? 1 : -1;
       return `<line x1="${x + nx * g * k}" y1="${y + ny * g * k}" x2="${x + nx * (ab + u * k)}" y2="${y + ny * (ab + u * k)}" stroke="${farbe}" stroke-width="${sw * .8}"/>`; }).join('') : '';
     const strich = (x, y) => `<line x1="${x + (ux - nx) * t * .7}" y1="${y + (uy - ny) * t * .7}" x2="${x - (ux - nx) * t * .7}" y2="${y - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw * 1.4}"/>`;
@@ -268,8 +269,8 @@ function planInhalt(v, b, opt){
       <line x1="${a1x}" y1="${a1y}" x2="${a2x}" y2="${a2y}" stroke="transparent" stroke-width="${F * 1.4}"/>
       ${hl}<line x1="${a1x - ux * t * .6}" y1="${a1y - uy * t * .6}" x2="${a2x + ux * t * .6}" y2="${a2y + uy * t * .6}" stroke="${farbe}" stroke-width="${sel ? sw * 2 : sw}"/>
       ${strich(a1x, a1y)}${strich(a2x, a2y)}
-      <rect x="${bx}" y="${my - F * .78}" width="${bw}" height="${F * 1.56}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
-      <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${F * 1.05}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>
+      <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})"><rect x="${bx}" y="${my - F * .78}" width="${bw}" height="${F * 1.56}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
+      <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${F * 1.05}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text></g>
     </g>`;
     if (opt.modus === 'vorlage' && sel) s += [[l.x1, l.y1, 1], [l.x2, l.y2, 2]].map(([x, y, e]) =>
       `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .55}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
