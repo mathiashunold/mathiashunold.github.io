@@ -251,25 +251,29 @@ function planInhalt(v, b, opt){
   const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
   let s = opt.url ? `<image href="${opt.url}" x="0" y="0" width="${v.w}" height="${v.h}"/>` : `<rect width="${v.w}" height="${v.h}" fill="#fff"/>`;
   for (const l of linienVon(v)) {
-    const L = laenge(l) || 1, ux = (l.x2 - l.x1) / L, uy = (l.y2 - l.y1) / L; let nx = -uy, ny = ux;
-    if (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)) { nx = -nx; ny = -ny; }       // Beschriftung oberhalb bzw. links der Linie
-    const t = F * .4, mx = (l.x1 + l.x2) / 2 + nx * F * 1.2, my = (l.y1 + l.y2) / 2 + ny * F * 1.2;
+    // Messpunkte P1/P2 bleiben; die Masslinie liegt um «ab» (Bildpunkte, entlang der Normalen n) daneben, Hilfslinien verbinden beide
+    const L = laenge(l) || 1, ux = (l.x2 - l.x1) / L, uy = (l.y2 - l.y1) / L, nx = -uy, ny = ux, ab = l.ab || 0;
+    const a1x = l.x1 + nx * ab, a1y = l.y1 + ny * ab, a2x = l.x2 + nx * ab, a2y = l.y2 + ny * ab;
+    let sx = nx, sy = ny;                                                            // Seite der Beschriftung: weg vom Bauteil
+    if (ab < 0 || (!ab && (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)))) { sx = -nx; sy = -ny; }
+    const t = F * .4, mx = (a1x + a2x) / 2 + sx * F * 1.15, my = (a1y + a2y) / 2 + sy * F * 1.15;
     const sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
     const w = b && b.werte && b.werte[l.id], wert = w && w.v != null ? mmTxt(w.v) : '';
     const so = soll(v, l), txt = opt.modus === 'vorlage' ? (so != null ? '≈ ' + so : '') : (opt.leer ? '' : wert);
     const bw = Math.max(F * 3.6, (txt.length * .58 + 1) * F), bx = mx - bw / 2;
+    const hl = Math.abs(ab) > F * .3 ? [[l.x1, l.y1], [l.x2, l.y2]].map(([x, y]) => { const g = F * .25, u = F * .4, k = ab > 0 ? 1 : -1;
+      return `<line x1="${x + nx * g * k}" y1="${y + ny * g * k}" x2="${x + nx * (ab + u * k)}" y2="${y + ny * (ab + u * k)}" stroke="${farbe}" stroke-width="${sw * .8}"/>`; }).join('') : '';
+    const strich = (x, y) => `<line x1="${x + (ux - nx) * t * .7}" y1="${y + (uy - ny) * t * .7}" x2="${x - (ux - nx) * t * .7}" y2="${y - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw * 1.4}"/>`;
     s += `<g class="ml" data-l="${l.id}">
-      <line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="transparent" stroke-width="${F * 1.4}"/>
-      <line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="${farbe}" stroke-width="${sel ? sw * 2 : sw}"/>
-      <line x1="${l.x1 + nx * t}" y1="${l.y1 + ny * t}" x2="${l.x1 - nx * t}" y2="${l.y1 - ny * t}" stroke="${farbe}" stroke-width="${sw}"/>
-      <line x1="${l.x2 + nx * t}" y1="${l.y2 + ny * t}" x2="${l.x2 - nx * t}" y2="${l.y2 - ny * t}" stroke="${farbe}" stroke-width="${sw}"/>
-      <line x1="${l.x1 + (ux - nx) * t * .7}" y1="${l.y1 + (uy - ny) * t * .7}" x2="${l.x1 - (ux - nx) * t * .7}" y2="${l.y1 - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw}"/>
-      <line x1="${l.x2 + (ux - nx) * t * .7}" y1="${l.y2 + (uy - ny) * t * .7}" x2="${l.x2 - (ux - nx) * t * .7}" y2="${l.y2 - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw}"/>
+      <line x1="${a1x}" y1="${a1y}" x2="${a2x}" y2="${a2y}" stroke="transparent" stroke-width="${F * 1.4}"/>
+      ${hl}<line x1="${a1x - ux * t * .6}" y1="${a1y - uy * t * .6}" x2="${a2x + ux * t * .6}" y2="${a2y + uy * t * .6}" stroke="${farbe}" stroke-width="${sel ? sw * 2 : sw}"/>
+      ${strich(a1x, a1y)}${strich(a2x, a2y)}
       <rect x="${bx}" y="${my - F * .78}" width="${bw}" height="${F * 1.56}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
       <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${F * 1.05}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>
     </g>`;
     if (opt.modus === 'vorlage' && sel) s += [[l.x1, l.y1, 1], [l.x2, l.y2, 2]].map(([x, y, e]) =>
-      `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .7}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw}" style="cursor:move"/>`).join('');
+      `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .55}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
+      + `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(a1x + a2x) / 2 - F * .5}" y="${(a1y + a2y) / 2 - F * .5}" width="${F}" height="${F}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`;
   }
   if (b) for (const st of (b.ink || []).filter(x => !x.weg)) s += `<polyline points="${st.p.join(' ')}" fill="none" stroke="${st.f || ROT}" stroke-width="${F * (st.d || .16)}" stroke-linecap="round" stroke-linejoin="round"/>`;
   if (opt.vorschau) s += opt.vorschau;
@@ -295,7 +299,7 @@ function planSteuerung(svg, key, h){   // h: {start(e,p) → true, wenn eine eig
     pan = {x: e.clientX, y: e.clientY};
   });
   svg.addEventListener('pointermove', e => {
-    if (!ptr.has(e.pointerId)) return; ptr.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    if (!ptr.has(e.pointerId)) { if (e.pointerType === 'mouse' && h.schweben) h.schweben(e, toPlan(svg, e)); return; } ptr.set(e.pointerId, {x: e.clientX, y: e.clientY});
     if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) bewegt = true;
     if (pinch && ptr.size === 2) { const [a, c] = [...ptr.values()], d = Math.hypot(a.x - c.x, a.y - c.y), m = {x: (a.x + c.x) / 2, y: (a.y + c.y) / 2};
       const ctm = svg.getScreenCTM(), vb = S.vb[key];
@@ -500,6 +504,7 @@ function zeichneVorlage(){
     <div class="layout"><div>
       <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
         <button class="btn klein" type="button" data-m="linie" aria-pressed="${S.modus === 'linie'}">Masslinie</button>
+        <button class="btn klein" type="button" data-m="kette" aria-pressed="${S.modus === 'kette'}" ${linienVon(v).length ? '' : 'disabled'}>Weiterführen</button>
         <button class="btn klein" type="button" data-m="pan" aria-pressed="${S.modus === 'pan'}">Verschieben</button>
         <button class="btn klein" type="button" data-m="kalib" aria-pressed="${S.modus === 'kalib'}">Massstab einmessen</button>
         <span class="trenner"></span>${zoomKnoepfe()}<span class="trenner"></span>
@@ -507,7 +512,8 @@ function zeichneVorlage(){
       </div>
       <div class="plan"><svg id="svg" class="${S.modus === 'pan' ? 'pan' : ''}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} mit Masslinien"></svg></div>
       <p class="hint">${S.modus === 'kalib' ? 'Eine Linie über ein bekanntes Mass ziehen (z. B. Bemassung 2.82 im Plan) und das Mass in mm eingeben.'
-        : 'Linie ziehen: drücken, ziehen, loslassen. Rastet waagrecht/senkrecht ein (Alt-Taste = frei). Linie antippen = auswählen, Endpunkte verschieben. Mausrad = Zoom, rechte Maustaste/Leertaste-Modus «Verschieben» = Plan schieben. Entf = Linie löschen.'}</p>
+        : S.modus === 'kette' ? 'Weiterführen: an der nächsten Kante klicken/tippen – jeder Abschnitt wird ein eigenes Mass auf derselben Masslinie. Esc oder «Masslinie» = fertig.'
+        : 'Messpunkte: drücken, von Kante zu Kante ziehen, loslassen (rastet waagrecht/senkrecht ein, Alt = frei). Danach die Masslinie mit der Maus wegziehen und klicken – die Hilfslinien wachsen mit. Am Tablet: Linie antippen und das blaue Quadrat ziehen. Runde Griffe = Messpunkte verschieben. Mausrad = Zoom, rechte Maustaste = Plan schieben, Entf = löschen.'}</p>
     </div>
     <div class="seite">
       <h2 style="margin-top:0">Massstab</h2>
@@ -518,6 +524,7 @@ function zeichneVorlage(){
         <label for="lText">Bezeichnung</label><input class="field" id="lText" value="${esc(l.text || '')}" placeholder="z. B. Nische Küche Breite">
         <label for="lSoll">Planmass (mm)</label><input class="field" id="lSoll" inputmode="decimal" value="${esc(l.soll != null ? l.soll : '')}" placeholder="${esc(soll(v, Object.assign({}, l, {soll: null})) != null ? soll(v, Object.assign({}, l, {soll: null})) : 'leer')}">
         <p class="hint">Leer = aus dem Plan gemessen.</p>
+        <div class="acts"><button class="btn" type="button" id="lKette">Weiterführen ab hier</button>${l.kette && kettenLaenge(v, l) > 1 ? '<button class="btn" type="button" id="lGesamt">Gesamtmass dazu</button>' : ''}</div>
         <div class="acts"><button class="btn" type="button" id="lWeg">Linie löschen</button><button class="btn" type="button" id="lAb">Auswahl aufheben</button></div>` : ''}
       <h2>Masslinien</h2>
       ${linienVon(v).length ? `<table class="masse"><tr><th>Nr.</th><th>Bezeichnung</th><th class="soll">Plan</th></tr>
@@ -531,28 +538,57 @@ function zeichneVorlage(){
   zoomVerdrahten(svg, key, v);
   const fang = (a, p, e) => { if (e.altKey) return p; const dx = p.x - a.x, dy = p.y - a.y, w = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90;
     if (w < 5 || w > 85) return Math.abs(dx) > Math.abs(dy) ? {x: p.x, y: a.y} : {x: a.x, y: p.y}; return p; };
-  let zug = null;   // {art:'neu'|'griff', a, p, l, e}
-  const linienSvg = (a, p) => `<line x1="${a.x}" y1="${a.y}" x2="${p.x}" y2="${p.y}" stroke="${S.modus === 'kalib' ? BLAU : ROT}" stroke-width="${Math.max(v.w, v.h) / 100 * .16}" stroke-dasharray="${Math.max(v.w, v.h) / 100 * .5}"/>`;
+  const norm = l => { const L = laenge(l) || 1; return {ux: (l.x2 - l.x1) / L, uy: (l.y2 - l.y1) / L, nx: -(l.y2 - l.y1) / L, ny: (l.x2 - l.x1) / L}; };
+  const abstand = (l, p) => { const n = norm(l); return (p.x - l.x1) * n.nx + (p.y - l.y1) * n.ny; };     // Abstand Masslinie ↔ Messpunkte
+  const kette = l => l.kette ? linienVon(v).filter(x => x.kette === l.kette) : [l];
+  function setzeAb(l, ab){   // ganze Kette samt Gesamtmass gemeinsam verschieben (Abstände untereinander bleiben, Vorzeichen je Richtung)
+    const n = norm(l), d = ab - (l.ab || 0), ox = n.nx * d, oy = n.ny * d;
+    for (const x of kette(l)) { const m = norm(x); x.ab = (x.ab || 0) + ox * m.nx + oy * m.ny; x.zeit = jetzt(); }
+  }
+  // Weiterführen: neuer Abschnitt ab dem Ende des letzten, auf derselben Geraden und derselben Masslinie
+  const ketteBasis = () => { const l = linienVon(v).find(x => x.id === S.ketteVon); return l || null; };
+  function ketteZiel(p){ const l = ketteBasis(), n = norm(l), d = (p.x - l.x2) * n.ux + (p.y - l.y2) * n.uy; return {x: l.x2 + n.ux * d, y: l.y2 + n.uy * d, d}; }
+  function ketteAnhaengen(q){
+    const l = ketteBasis(); if (!l) return; if (!l.kette) l.kette = neueId();
+    const nl = {id: neueId(), x1: l.x2, y1: l.y2, x2: q.x, y2: q.y, text: '', soll: null, kette: l.kette, zeit: jetzt()};
+    const n = norm(l), m = norm(nl); nl.ab = (n.nx * (l.ab || 0)) * m.nx + (n.ny * (l.ab || 0)) * m.ny;
+    v.linien.push(nl); nummeriere(v); v.zeit = jetzt(); S.ketteVon = nl.id; S.sel = nl.id; speichern();
+  }
+  let zug = null;   // {art:'neu'|'griff'|'wahl'|'kette'|'fix', a, p, l, e}
+  const strich = (a, p, farbe) => `<line x1="${a.x}" y1="${a.y}" x2="${p.x}" y2="${p.y}" stroke="${farbe}" stroke-width="${Math.max(2, Math.max(v.w, v.h) / 100 * .05)}" stroke-dasharray="${Math.max(v.w, v.h) / 100 * .5}"/>`;
   planSteuerung(svg, key, {
+    schweben(e, p){   // PC: nach dem Ziehen die Masslinie mit der Maus wegschieben, Klick setzt sie; im Ketten-Modus Vorschau des nächsten Abschnitts
+      if (S.abWahl) { const l = linienVon(v).find(x => x.id === S.abWahl); if (!l) { S.abWahl = null; return; } setzeAb(l, abstand(l, p)); malen(); return; }
+      if (S.modus === 'kette' && ketteBasis()) { const q = ketteZiel(p); vorschau = strich({x: ketteBasis().x2, y: ketteBasis().y2}, q, ROT); malen(); }
+    },
     start(e, p){
       if (S.modus === 'pan' || e.button !== 0) return false;
+      if (S.abWahl) { S.abWahl = null; v.zeit = jetzt(); speichern(); zug = {art: 'fix'}; return true; }
       const g = e.target.closest && e.target.closest('.griff');
       if (g) { zug = {art: 'griff', l: linienVon(v).find(x => x.id === g.dataset.l), e: g.dataset.e}; return true; }
+      if (S.modus === 'kette') { if (!ketteBasis()) return false; zug = {art: 'kette'}; return true; }
       const ml = e.target.closest && e.target.closest('.ml');
       if (ml && S.modus === 'linie') { zug = {art: 'wahl', id: ml.dataset.l}; return true; }
       zug = {art: 'neu', a: p, p}; return true;
     },
     bewege(e, p){
       if (!zug) return;
-      if (zug.art === 'griff') { const l = zug.l, a = zug.e === '1' ? {x: l.x2, y: l.y2} : {x: l.x1, y: l.y1}, q = fang(a, p, e);
-        if (zug.e === '1') { l.x1 = q.x; l.y1 = q.y; } else { l.x2 = q.x; l.y2 = q.y; } malen(); }
-      else if (zug.art === 'neu') { zug.p = fang(zug.a, p, e); vorschau = linienSvg(zug.a, zug.p); malen(); }
+      if (zug.art === 'griff') { const l = zug.l;
+        if (zug.e === 'ab') setzeAb(l, abstand(l, p));
+        else { const a = zug.e === '1' ? {x: l.x2, y: l.y2} : {x: l.x1, y: l.y1}, q = fang(a, p, e);
+          if (zug.e === '1') { l.x1 = q.x; l.y1 = q.y; } else { l.x2 = q.x; l.y2 = q.y; } }
+        malen(); }
+      else if (zug.art === 'neu') { zug.p = fang(zug.a, p, e); vorschau = strich(zug.a, zug.p, S.modus === 'kalib' ? BLAU : ROT); malen(); }
+      else if (zug.art === 'kette') { const q = ketteZiel(p); vorschau = strich({x: ketteBasis().x2, y: ketteBasis().y2}, q, ROT); malen(); }
     },
-    ende(){
+    ende(e, p){
       const z = zug; zug = null; vorschau = null;
       if (!z) return;
+      if (z.art === 'fix') return zeichneVorlage();
       if (z.art === 'wahl') { S.sel = z.id; return zeichneVorlage(); }
       if (z.art === 'griff') { z.l.zeit = jetzt(); v.zeit = jetzt(); speichern(); return zeichneVorlage(); }
+      if (z.art === 'kette') { const q = ketteZiel(p), ctm = svg.getScreenCTM();
+        if (Math.abs(q.d) * ctm.a >= 12) ketteAnhaengen(q); return zeichneVorlage(); }
       const ctm = svg.getScreenCTM(), lang = Math.hypot(z.p.x - z.a.x, z.p.y - z.a.y) * ctm.a;
       if (lang < 12) { S.sel = null; return zeichneVorlage(); }
       if (S.modus === 'kalib') {
@@ -560,13 +596,15 @@ function zeichneVorlage(){
         if (mm) { v.kalib = mm / Math.hypot(z.p.x - z.a.x, z.p.y - z.a.y); v.zeit = jetzt(); S.modus = 'linie'; speichern(); }
         return zeichneVorlage();
       }
-      const l = {id: neueId(), x1: z.a.x, y1: z.a.y, x2: z.p.x, y2: z.p.y, text: '', soll: null, zeit: jetzt()};
-      v.linien = v.linien || []; v.linien.push(l); nummeriere(v); v.zeit = jetzt(); S.sel = l.id; speichern(); zeichneVorlage();
-      const t = $('#lText'); if (t) t.focus({preventScroll: true});
+      const l = {id: neueId(), x1: z.a.x, y1: z.a.y, x2: z.p.x, y2: z.p.y, ab: 0, text: '', soll: null, zeit: jetzt()};
+      v.linien = v.linien || []; v.linien.push(l); nummeriere(v); v.zeit = jetzt(); S.sel = S.ketteVon = l.id;
+      if (e.pointerType === 'mouse') S.abWahl = l.id;   // Masslinie folgt der Maus bis zum nächsten Klick
+      speichern(); zeichneVorlage();
     },
     abbruch(){ zug = null; vorschau = null; malen(); }
   });
-  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.modus = b.dataset.m; zeichneVorlage(); });
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.modus = b.dataset.m; S.abWahl = null;
+    if (S.modus === 'kette' && !linienVon(v).some(x => x.id === S.ketteVon)) S.ketteVon = (linienVon(v).find(x => x.id === S.sel) || linienVon(v).slice(-1)[0] || {}).id; zeichneVorlage(); });
   $('#grm').onclick = () => { v.gr = Math.max(.4, (v.gr || 1) / 1.2); v.zeit = jetzt(); speichern(); malen(); };
   $('#grp').onclick = () => { v.gr = Math.min(3, (v.gr || 1) * 1.2); v.zeit = jetzt(); speichern(); malen(); };
   $('#zurueck').onclick = $('#fertig').onclick = () => { S.ansicht = 'auftrag'; S.sel = null; zeichne(); };
@@ -579,13 +617,27 @@ function zeichneVorlage(){
     $('#lSoll').onchange = () => { const s = zahl($('#lSoll').value); l.soll = s; l.zeit = v.zeit = jetzt(); speichern(); zeichneVorlage(); };
     $('#lWeg').onclick = () => loescheLinie(v, l);
     $('#lAb').onclick = () => { S.sel = null; zeichneVorlage(); };
+    $('#lKette').onclick = () => { S.ketteVon = l.id; S.modus = 'kette'; zeichneVorlage(); };
+    if ($('#lGesamt')) $('#lGesamt').onclick = () => { gesamtmass(v, l); zeichneVorlage(); };
   }
   document.onkeydown = e => {
     if (S.ansicht !== 'vorlage' || /INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName)) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && l) { e.preventDefault(); loescheLinie(v, l); }
-    if (e.key === 'Escape') { S.sel = null; zeichneVorlage(); }
+    if (e.key === 'Escape') { S.sel = null; S.abWahl = null; if (S.modus === 'kette') S.modus = 'linie'; zeichneVorlage(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') { const x = linienVon(v).slice(-1)[0]; if (x) loescheLinie(v, x); }
   };
+}
+function kettenLaenge(v, l){ return l.kette ? linienVon(v).filter(x => x.kette === l.kette && !x.gesamt).length : 1; }
+function gesamtmass(v, l){   // Gesamtmass über eine Kette, eine Stufe weiter aussen
+  const k = linienVon(v).filter(x => x.kette === l.kette && !x.gesamt); if (k.length < 2) return;
+  const a = k[0], L = laenge(a) || 1, ux = (a.x2 - a.x1) / L, uy = (a.y2 - a.y1) / L, nx = -uy, ny = ux;
+  const pts = k.flatMap(x => [{x: x.x1, y: x.y1}, {x: x.x2, y: x.y2}]), t = q => (q.x - a.x1) * ux + (q.y - a.y1) * uy;
+  const lo = pts.reduce((m, q) => t(q) < t(m) ? q : m), hi = pts.reduce((m, q) => t(q) > t(m) ? q : m);
+  const ab0 = a.ab || 0, F = Math.max(v.w, v.h) / 100 * (v.gr || 1), ab = ab0 + (ab0 < 0 ? -1 : 1) * F * 2.4;
+  const g = {id: neueId(), x1: lo.x, y1: lo.y, x2: hi.x, y2: hi.y, text: 'Gesamt', soll: null, gesamt: true, kette: l.kette, zeit: jetzt()};
+  const m = {nx: -(hi.y - lo.y) / (Math.hypot(hi.x - lo.x, hi.y - lo.y) || 1), ny: (hi.x - lo.x) / (Math.hypot(hi.x - lo.x, hi.y - lo.y) || 1)};
+  g.ab = (nx * ab) * m.nx + (ny * ab) * m.ny;
+  v.linien.push(g); nummeriere(v); v.zeit = jetzt(); S.sel = g.id; speichern();
 }
 function loescheLinie(v, l){ l.weg = true; l.zeit = v.zeit = jetzt(); nummeriere(v); S.sel = null; speichern(); zeichneVorlage(); }
 
