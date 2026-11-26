@@ -82,7 +82,7 @@ table.masse{width:100%;border-collapse:collapse;font-size:16px}
 table.masse th{font-size:13px;color:var(--muted);text-align:left;font-weight:600;padding:4px}
 table.masse td{padding:3px 4px;border-top:1px solid var(--line);vertical-align:middle}
 table.masse tr.aktiv td{background:var(--surface-2)}
-table.masse .nr{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:13px;background:#D0021B;color:#fff;font-weight:700;font-size:14px}
+table.masse .nr{font-size:13px;color:var(--muted)}
 table.masse input{width:100%;min-width:70px;text-align:right;font-weight:700;font-size:19px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
 table.masse input.text{text-align:left;font-weight:500;font-size:16px}
 table.masse .soll,table.masse .diff{text-align:right;white-space:nowrap;font-size:15px;color:var(--muted)}
@@ -248,27 +248,25 @@ function nummeriere(v){ linienVon(v).forEach((l, i) => { l.nr = i + 1; }); }
 
 // ---------- Plan zeichnen (SVG in Bildpunkten des Plans) – gemeinsam für Bearbeiten, Blatt und Druck ----------
 function planInhalt(v, b, opt){
-  const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = F * .13;
+  const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
   let s = opt.url ? `<image href="${opt.url}" x="0" y="0" width="${v.w}" height="${v.h}"/>` : `<rect width="${v.w}" height="${v.h}" fill="#fff"/>`;
   for (const l of linienVon(v)) {
     const L = laenge(l) || 1, ux = (l.x2 - l.x1) / L, uy = (l.y2 - l.y1) / L; let nx = -uy, ny = ux;
     if (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)) { nx = -nx; ny = -ny; }       // Beschriftung oberhalb bzw. links der Linie
-    const t = F * .55, mx = (l.x1 + l.x2) / 2 + nx * F * 1.2, my = (l.y1 + l.y2) / 2 + ny * F * 1.2;
+    const t = F * .4, mx = (l.x1 + l.x2) / 2 + nx * F * 1.2, my = (l.y1 + l.y2) / 2 + ny * F * 1.2;
     const sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
     const w = b && b.werte && b.werte[l.id], wert = w && w.v != null ? mmTxt(w.v) : '';
     const so = soll(v, l), txt = opt.modus === 'vorlage' ? (so != null ? '≈ ' + so : '') : (opt.leer ? '' : wert);
-    const bw = Math.max(F * 3.6, (txt.length * .58 + 1) * F), bx = mx + F * .9;
+    const bw = Math.max(F * 3.6, (txt.length * .58 + 1) * F), bx = mx - bw / 2;
     s += `<g class="ml" data-l="${l.id}">
       <line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="transparent" stroke-width="${F * 1.4}"/>
-      <line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="${farbe}" stroke-width="${sel ? sw * 1.8 : sw}"/>
+      <line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="${farbe}" stroke-width="${sel ? sw * 2 : sw}"/>
       <line x1="${l.x1 + nx * t}" y1="${l.y1 + ny * t}" x2="${l.x1 - nx * t}" y2="${l.y1 - ny * t}" stroke="${farbe}" stroke-width="${sw}"/>
       <line x1="${l.x2 + nx * t}" y1="${l.y2 + ny * t}" x2="${l.x2 - nx * t}" y2="${l.y2 - ny * t}" stroke="${farbe}" stroke-width="${sw}"/>
       <line x1="${l.x1 + (ux - nx) * t * .7}" y1="${l.y1 + (uy - ny) * t * .7}" x2="${l.x1 - (ux - nx) * t * .7}" y2="${l.y1 - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw}"/>
       <line x1="${l.x2 + (ux - nx) * t * .7}" y1="${l.y2 + (uy - ny) * t * .7}" x2="${l.x2 - (ux - nx) * t * .7}" y2="${l.y2 - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw}"/>
-      <circle cx="${mx}" cy="${my}" r="${F * .78}" fill="${farbe}"/>
-      <text x="${mx}" y="${my + F * .36}" font-size="${F}" font-weight="700" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif">${l.nr}</text>
-      <rect x="${bx}" y="${my - F * .78}" width="${bw}" height="${F * 1.56}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.2 : sw * .8}"/>
-      <text x="${bx + F * .45}" y="${my + F * .38}" font-size="${F * 1.05}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>
+      <rect x="${bx}" y="${my - F * .78}" width="${bw}" height="${F * 1.56}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>
+      <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${F * 1.05}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>
     </g>`;
     if (opt.modus === 'vorlage' && sel) s += [[l.x1, l.y1, 1], [l.x2, l.y2, 2]].map(([x, y, e]) =>
       `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .7}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw}" style="cursor:move"/>`).join('');
@@ -684,18 +682,16 @@ async function drucken(liste, leer){
   const urls = {};
   for (const b of liste) { const v = vorlage(b.vorlage); if (v && !(v.bild in urls)) { await bildUrl(v.bild); const bl = bildBlobs[v.bild]; urls[v.bild] = bl ? 'data:image/jpeg;base64,' + await blobB64(bl) : ''; } }
   const a = daten.auftrag, datum = new Date().toLocaleDateString('de-CH');
-  const seiten = liste.map(b => { const v = vorlage(b.vorlage); if (!v) return ''; const L = linienVon(v);
+  const seiten = liste.map(b => { const v = vorlage(b.vorlage); if (!v) return '';
     return `<section><header><b>${esc(v.name)}${b.geschoss ? ' · ' + esc(b.geschoss) : ''}</b><span>Auftrag ${esc(a.nr)} ${esc(a.titel || '')}</span>
         <span>Datum: ${leer ? '________' : datum}</span><span>Gemessen von: ${leer ? '____________' : esc(Object.values(b.werte || {}).map(x => x.von).filter(Boolean)[0] || '')}</span></header>
       <div class="inhalt"><svg viewBox="0 0 ${v.w} ${v.h}" preserveAspectRatio="xMidYMid meet">${planInhalt(v, leer ? null : b, {modus: 'druck', leer, url: urls[v.bild]})}</svg>
-      <table><tr><th>Nr.</th><th>Bezeichnung</th><th>Plan</th><th>Ist mm</th></tr>
-        ${L.map(l => { const x = b.werte && b.werte[l.id]; return `<tr><td class="n">${l.nr}</td><td>${esc(l.text || '')}</td><td class="z">${soll(v, l) != null ? soll(v, l) : ''}</td><td class="z ist">${!leer && x && x.v != null ? mmTxt(x.v) : ''}</td></tr>`; }).join('')}
-      </table></div>${!leer && b.notiz ? `<p class="notiz">Notiz: ${esc(b.notiz)}</p>` : ''}</section>`; }).join('');
+</div>${!leer && b.notiz ? `<p class="notiz">Notiz: ${esc(b.notiz)}</p>` : ''}</section>`; }).join('');
   w.document.open();
   w.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Planaufmass ${esc(a.nr)}</title>
     <style>@page{size:A3 landscape;margin:8mm}body{margin:0;font:11pt Arial,sans-serif;color:#111}section{page-break-after:always;height:277mm;display:flex;flex-direction:column}
     section:last-child{page-break-after:auto}header{display:flex;gap:18px;align-items:baseline;border-bottom:1.5pt solid #111;padding-bottom:4px;margin-bottom:6px}header b{font-size:15pt;flex:1}
-    .inhalt{flex:1;display:grid;grid-template-columns:1fr 70mm;gap:6mm;min-height:0}svg{width:100%;height:100%;border:.5pt solid #999}
+    .inhalt{flex:1;display:flex;min-height:0}svg{width:100%;height:100%;border:.5pt solid #999}
     table{border-collapse:collapse;align-self:start;width:100%}th,td{border:.5pt solid #555;padding:0 4px;height:9mm;text-align:left;font-size:10pt}th{height:6mm;background:#eee}
     td.n{width:9mm;text-align:center;font-weight:700;color:#D0021B}td.z{text-align:right;width:16mm}td.ist{width:22mm;font-weight:700;font-size:12pt}.notiz{margin:4px 0 0}
     .knopf{position:fixed;bottom:8px;right:8px;font:14px system-ui;background:#fff;border:1px solid #999;border-radius:6px;padding:6px 8px}@media print{.knopf{display:none}}</style>
