@@ -136,7 +136,10 @@ const aktiveVorlagen = () => (daten ? daten.vorlagen : []).filter(v => !v.weg);
 const blaetterVon = vid => (daten ? daten.blaetter : []).filter(b => !b.weg && b.vorlage === vid);
 const vorlage = id => daten && daten.vorlagen.find(v => v.id === id);
 const blatt = id => daten && daten.blaetter.find(b => b.id === id);
-const linienVon = v => (v.linien || []).filter(l => !l.weg);
+// Masslinien eines Plans; mit Blatt zusätzlich die auf der Baustelle ergänzten Linien dieses Blatts (b.linien, nur dieses Geschoss)
+const linienVon = (v, b) => { const L = (v.linien || []).filter(l => !l.weg); const E = b ? (b.linien || []).filter(l => !l.weg) : [];
+  E.forEach((l, i) => { l.nr = L.length + i + 1; }); return E.length ? L.concat(E) : L; };
+const zusatzLinie = (b, lid) => !!(b && (b.linien || []).some(x => x.id === lid));
 
 // ---------- GitHub (privates Repo, Branch «kontrolle») ----------
 const API = 'https://api.github.com', BRANCH = 'kontrolle';
@@ -179,7 +182,9 @@ function mischeBlatt(a, b){
   n.werte = werte; n.ink = Object.values(ink).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''));
   n.fotos = Object.values(fo).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''));
   const ha = {}; for (const q of [a, b]) for (const [k, h] of Object.entries(q.hand || {})) ha[k] = neuer(ha[k], h);
-  n.hand = ha; return n;
+  n.hand = ha;
+  const zl = {}; for (const q of [a, b]) for (const l of q.linien || []) zl[l.id] = neuer(zl[l.id], l);
+  n.linien = Object.values(zl).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || '')); return n;
 }
 function mischeDaten(a, b){
   if (!a) return b; if (!b) return a;
@@ -317,7 +322,7 @@ function beschriftung(v, b, l, opt){
 function planInhalt(v, b, opt){
   const F = fGr(v), sw = Math.max(1.5, F * .035);
   let s = opt.url ? `<image href="${opt.url}" x="0" y="0" width="${v.w}" height="${v.h}"/>` : `<rect width="${v.w}" height="${v.h}" fill="#fff"/>`;
-  for (const l of linienVon(v)) {
+  for (const l of linienVon(v, b)) {
     const txt = beschriftung(v, b, l, opt), G = geo(v, l, txt), sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
     const {mx, my, bw, wi} = G, bx = mx - bw / 2;
     s += `<g class="ml" data-l="${l.id}">
@@ -416,7 +421,7 @@ function oeffneAuftrag(nr, titel){
 }
 const handVon = (b, lid) => { const h = b && b.hand && b.hand[lid]; return h && h.s && h.s.length ? h.s : null; };
 const erfasst = (b, lid) => !!((b.werte[lid] && b.werte[lid].v != null) || handVon(b, lid));
-function fortschritt(b){ const v = vorlage(b.vorlage), n = v ? linienVon(v).length : 0, g = v ? linienVon(v).filter(l => erfasst(b, l.id)).length : 0; return {n, g}; }
+function fortschritt(b){ const v = vorlage(b.vorlage), n = v ? linienVon(v, b).length : 0, g = v ? linienVon(v, b).filter(l => erfasst(b, l.id)).length : 0; return {n, g}; }
 function zeichneAuftrag(){
   const a = daten.auftrag;
   $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zur Auftragsliste">‹</button>
@@ -737,7 +742,7 @@ function loescheLinie(v, l){ l.weg = true; l.zeit = v.zeit = jetzt(); nummeriere
 function zeichneBlatt(){
   const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v) { S.ansicht = 'auftrag'; return zeichne(); }
   const key = 'v' + v.id; if (!S.vb[key]) einpassen(key, v);
-  const L = linienVon(v), p = fortschritt(b);
+  const L = linienVon(v, b), p = fortschritt(b);
   $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zum Auftrag">‹</button>
       <h1>${esc(v.name)} · ${esc(b.geschoss)}<small>${esc(daten.auftrag.nr)} ${esc(daten.auftrag.titel || '')} · ${p.g} von ${p.n} gemessen</small></h1>
       <button class="btn" type="button" id="druckL">PDF leer</button><button class="btn" type="button" id="druckV">PDF mit Massen</button></div>
@@ -745,6 +750,7 @@ function zeichneBlatt(){
       <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
         <button class="btn klein" type="button" data-m="ansehen" aria-pressed="${S.modus !== 'stift' && S.modus !== 'foto'}">Masse eintragen</button>
         <button class="btn klein" type="button" data-m="stift" aria-pressed="${S.modus === 'stift'}">Notiz-Stift</button>
+        <button class="btn klein" type="button" data-m="neu" aria-pressed="${S.modus === 'neu'}">+ Masslinie</button>
         <button class="btn klein" type="button" data-m="foto" aria-pressed="${S.modus === 'foto'}">Foto</button>
         <input type="file" id="kamera" accept="image/*" capture="environment" hidden>
         ${S.modus === 'stift' ? `<button class="btn klein" type="button" data-f="${ROT}" aria-pressed="${S.farbe === ROT}" style="color:${ROT}">● Rot</button><button class="btn klein" type="button" data-f="#1C5FD1" aria-pressed="${S.farbe === '#1C5FD1'}" style="color:#1C5FD1">● Blau</button><button class="btn klein" type="button" data-f="#111111" aria-pressed="${S.farbe === '#111111'}">● Schwarz</button>
@@ -755,6 +761,7 @@ function zeichneBlatt(){
       </div>
       <div class="plan"><svg id="svg" class="${S.modus === 'stift' ? '' : 'pan'}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} ${esc(b.geschoss)}"></svg></div>
       <p class="hint">${S.modus === 'stift' ? 'Mit Stift oder Finger direkt auf den Plan schreiben (z. B. Masse, Notizen). Mit zwei Fingern zoomen. Erkennt das Tablet einen Stift, schiebt der Finger den Plan.'
+        : S.modus === 'neu' ? 'Neue Masslinie: von Kante zu Kante ziehen (rastet waagrecht/senkrecht ein). Danach öffnet sich die Eingabe für Bezeichnung und Mass. Gilt nur für dieses Blatt (Geschoss).'
         : S.modus === 'foto' ? 'Foto: auf die Stelle im Plan tippen, wo fotografiert wird – die Kamera öffnet sich. Das Foto erscheint als blaues Kamera-Symbol (F1, F2 …); antippen zum Ansehen.'
         : 'Ausmass: Mass antippen → Zahl eintippen oder mit dem Stift ins Feld schreiben (Stift direkt aufs Feld öffnet das Schreibfeld). Die Linien sind hier fest. Blaues Kamera-Symbol = Foto. Zwei Finger = zoomen/schieben.'}</p>
     </div>
@@ -773,8 +780,9 @@ function zeichneBlatt(){
       <div class="acts"><button class="btn" type="button" id="blattWeg">Blatt löschen</button></div>
       <p class="sync" id="sync">${esc(S.sync)}</p>
     </div></div>`;
-  const svg = $('#svg'); let url = bildUrls[v.bild] || '', strich = null, stiftDa = S.stiftDa || false;
-  const malen = () => { svg.innerHTML = planInhalt(v, b, {modus: 'blatt', aktiv: S.aktiv, url, vorschau: strich ? `<polyline points="${strich.p.join(' ')}" fill="none" stroke="${strich.f}" stroke-width="${Math.max(v.w, v.h) / 100 * strich.d}" stroke-linecap="round" stroke-linejoin="round"/>` : ''}); };
+  const svg = $('#svg'); let url = bildUrls[v.bild] || '', strich = null, stiftDa = S.stiftDa || false, neuZug = null;
+  const fangB = (a, q) => { const dx = q.x - a.x, dy = q.y - a.y, w = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90; return (w < 5 || w > 85) ? (Math.abs(dx) > Math.abs(dy) ? {x: q.x, y: a.y} : {x: a.x, y: q.y}) : q; };
+  const malen = () => { svg.innerHTML = planInhalt(v, b, {modus: 'blatt', aktiv: S.aktiv, url, vorschau: strich ? `<polyline points="${strich.p.join(' ')}" fill="none" stroke="${strich.f}" stroke-width="${Math.max(v.w, v.h) / 100 * strich.d}" stroke-linecap="round" stroke-linejoin="round"/>` : (neuZug ? `<line x1="${neuZug.a.x}" y1="${neuZug.a.y}" x2="${neuZug.p.x}" y2="${neuZug.p.y}" stroke="${ROT}" stroke-width="${fGr(v) * .08}" stroke-dasharray="${fGr(v) * .5}"/>` : '')}); };
   setzeVb(svg, key); malen(); bildUrl(v.bild).then(u => { url = u; malen(); });
   zoomVerdrahten(svg, key, v);
   const fokus = id => { S.aktiv = id; document.querySelectorAll('tr[data-zl]').forEach(r => r.classList.toggle('aktiv', r.dataset.zl === id)); malen();
@@ -784,14 +792,21 @@ function zeichneBlatt(){
     start(e, p){
       if (e.pointerType === 'pen') stiftDa = S.stiftDa = true;
       const feld = e.target.closest && e.target.closest('.ml');   // Stift direkt auf ein Mass → Schreibfeld öffnen
+      if (S.modus === 'neu' && e.button === 0 && !(e.pointerType === 'touch' && stiftDa)) { neuZug = {a: p, p}; return true; }
       if (e.pointerType === 'pen' && feld && S.modus !== 'foto') { eingabe(b, v, feld.dataset.l, true, malen); return true; }
       if (S.modus !== 'stift' || e.button !== 0) return false;
       strich = {id: neueId(), f: S.farbe, d: dicke().n, p: [Math.round(p.x), Math.round(p.y)], erstellt: jetzt(), zeit: jetzt()}; return true;
     },
-    bewege(e, p){ if (!strich) return; const n = strich.p.length; if (Math.hypot(p.x - strich.p[n - 2], p.y - strich.p[n - 1]) < 2) return; strich.p.push(Math.round(p.x), Math.round(p.y)); malen(); },
-    ende(){ if (!strich) return; if (strich.p.length < 4) strich.p.push(strich.p[0] + 1, strich.p[1] + 1);
+    bewege(e, p){ if (neuZug) { neuZug.p = e.altKey ? p : fangB(neuZug.a, p); malen(); return; } if (!strich) return; const n = strich.p.length; if (Math.hypot(p.x - strich.p[n - 2], p.y - strich.p[n - 1]) < 2) return; strich.p.push(Math.round(p.x), Math.round(p.y)); malen(); },
+    ende(){
+      if (neuZug) { const z = neuZug; neuZug = null; const lang = Math.hypot(z.p.x - z.a.x, z.p.y - z.a.y) * svg.getScreenCTM().a;
+        if (lang < 15) return malen();
+        const l = {id: neueId(), x1: z.a.x, y1: z.a.y, x2: z.p.x, y2: z.p.y, ab: 0, text: '', soll: null, erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''};
+        b.linien = b.linien || []; b.linien.push(l); b.zeit = jetzt(); merkeIndex(); speichern();
+        S.modus = 'ansehen'; S.oeffne = l.id; return zeichneBlatt(); }
+      if (!strich) return; if (strich.p.length < 4) strich.p.push(strich.p[0] + 1, strich.p[1] + 1);
       b.ink = b.ink || []; b.ink.push(strich); strich = null; b.zeit = jetzt(); speichern(); malen(); },
-    abbruch(){ strich = null; malen(); },
+    abbruch(){ strich = null; neuZug = null; malen(); },
     tipp(e, p, ziel){
       const t = ziel && ziel.closest ? ziel : e.target, fo = t.closest && t.closest('.foto'); if (fo) return grossbild(b, fo.dataset.foto);
       if (S.modus === 'foto') { S.fotoOrt = {x: Math.round(p.x), y: Math.round(p.y)}; $('#kamera').click(); return; }   // Kamera öffnet (Tippen = Nutzeraktion)
@@ -810,6 +825,7 @@ function zeichneBlatt(){
     b.fotos = b.fotos || []; b.fotos.push({id, k, ...(S.fotoOrt || {x: null, y: null}), erstellt: jetzt(), zeit: jetzt(), von: ls.get('kuerzel') || ''});
     b.zeit = jetzt(); speichern(); malen(); zeigeFotoleiste(b); };
   zeigeFotoleiste(b);
+  if (S.oeffne) { const id = S.oeffne; S.oeffne = null; eingabe(b, v, id, false, malen); }   // neue Masslinie: gleich Bezeichnung + Mass eintragen
   $('#druckL').onclick = () => drucken([b], true); $('#druckV').onclick = () => drucken([b], false);
   $('#glm').onclick = () => GLM.verbinden();
   $('#notiz').onchange = () => { b.notiz = $('#notiz').value; b.zeit = jetzt(); speichern(); };
@@ -825,7 +841,7 @@ function zeichneBlatt(){
 function kopfNeu(b){ const p = fortschritt(b), h = document.querySelector('.top small'); if (h && S.ansicht === 'blatt') h.textContent = `${daten.auftrag.nr} ${daten.auftrag.titel || ''} · ${p.g} von ${p.n} gemessen`; }
 function setzeWert(b, v, lid, wert, malen){
   b.werte[lid] = {v: wert, zeit: jetzt(), von: ls.get('kuerzel') || ''}; b.zeit = jetzt(); merkeIndex(); speichern();
-  const l = linienVon(v).find(x => x.id === lid), so = l && soll(v, l), d = wert != null && so != null ? wert - so : null, el = $('#d_' + lid);
+  const l = linienVon(v, b).find(x => x.id === lid), so = l && soll(v, l), d = wert != null && so != null ? wert - so : null, el = $('#d_' + lid);
   if (el) { el.textContent = d != null ? (d > 0 ? '+' : '') + mmTxt(d) : ''; el.classList.toggle('gross', d != null && Math.abs(d) > TOL); }
   const i = $('#ist_' + lid); if (i && document.activeElement !== i) i.value = wert != null ? mmTxt(wert) : '';
   kopfNeu(b);
@@ -845,17 +861,18 @@ function sichtbarMachen(v, l, d){
 }
 function eingabeZu(){ if (S.eingabeSichern) { try { S.eingabeSichern(); } catch(e){} S.eingabeSichern = null; } const d = $('#eing'); if (d) d.remove(); }   // offene Eingabe immer zuerst sichern
 function eingabe(b, v, lid, stift, malen){
-  eingabeZu(); const L = linienVon(v), i = L.findIndex(x => x.id === lid), l = L[i]; if (!l) return;
+  eingabeZu(); const L = linienVon(v, b), i = L.findIndex(x => x.id === lid), l = L[i]; if (!l) return;
   S.aktiv = lid; if (malen) malen();
   const so = soll(v, l), w = b.werte[lid], G = geo(v, l, ''), seite = G.bw / G.bh;
   const d = document.createElement('div'); d.className = 'eingabe'; d.id = 'eing'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Mass eintragen');
   d.innerHTML = `<div class="kopf"><b>${l.art === 'h' ? 'H: ' : ''}${esc(l.text || 'Mass ' + l.nr)}</b><span>${i + 1} von ${L.length}${so != null ? ' · Plan ' + so : ''}</span>
       <button class="btn klein" type="button" data-e="zu" aria-label="Schliessen">✕</button></div>
+    ${zusatzLinie(b, lid) ? `<div class="zeile"><input id="eText" class="field" style="font-size:18px;min-height:44px" placeholder="Bezeichnung (z. B. Nische Breite)" value="${esc(l.text || '')}" aria-label="Bezeichnung der neuen Masslinie"></div>` : ''}
     <div class="zeile"><input id="eWert" inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="mm eintippen" value="${esc(w && w.v != null ? mmTxt(w.v) : '')}" aria-label="Mass in mm">
       ${GLM.status === 'ok' ? '<span class="hint" style="align-self:center">Bosch bereit</span>' : ''}</div>
     <canvas id="ePad" aria-label="Schreibfeld für den Stift"></canvas>
     <div class="acts" style="align-items:center"><span class="hint" style="margin:0">Stift:</span>${dickeKnoepfe()}</div>
-    <div class="acts"><button class="btn" type="button" data-e="leer">Schrift löschen</button><button class="btn" type="button" data-e="vor" ${i ? '' : 'disabled'}>‹ Zurück</button>
+    <div class="acts">${zusatzLinie(b, lid) ? '<button class="btn" type="button" data-e="linieWeg">Linie löschen</button>' : ''}<button class="btn" type="button" data-e="leer">Schrift löschen</button><button class="btn" type="button" data-e="vor" ${i ? '' : 'disabled'}>‹ Zurück</button>
       <button class="btn primary" type="button" data-e="weiter">${i < L.length - 1 ? 'Weiter ›' : 'Fertig'}</button></div>`;
   document.body.appendChild(d);
   const c = $('#ePad'), cw = Math.min(640, d.clientWidth - 28), ch = Math.round(cw / seite), dpr = devicePixelRatio || 1;
@@ -871,7 +888,8 @@ function eingabe(b, v, lid, stift, malen){
   c.onpointerdown = e => { c.setPointerCapture(e.pointerId); akt = pos(e); zeichnePad(); };
   c.onpointermove = e => { if (!akt) return; akt.push(...pos(e)); zeichnePad(); };
   c.onpointerup = c.onpointercancel = () => { if (!akt) return; if (akt.length < 4) akt.push(akt[0] + .003, akt[1]); striche.push(akt); akt = null; zeichnePad(); speichereHand(); };
-  const inp = $('#eWert');
+  const inp = $('#eWert'), et = $('#eText');
+  if (et) et.oninput = () => { l.text = et.value; l.zeit = b.zeit = jetzt(); speichern(); };
   const uebernehmen = () => { const z = zahl(inp.value), jw = b.werte[lid], alt = jw && jw.v != null ? jw.v : null; if (z !== alt) setzeWert(b, v, lid, z, malen); };
   S.eingabeSichern = uebernehmen;
   const gehe = k => { uebernehmen(); S.eingabeSichern = null; const n = L[i + k]; if (n) eingabe(b, v, n.id, stift, malen); else { eingabeZu(); S.aktiv = null; if (malen) malen(); } };
@@ -880,6 +898,7 @@ function eingabe(b, v, lid, stift, malen){
   d.onclick = ev => { const a = ev.target.dataset && ev.target.dataset.e;
     if (a === 'zu') { eingabeZu(); S.aktiv = null; if (malen) malen(); }
     else if (a === 'leer') { striche = []; zeichnePad(); speichereHand(); }
+    else if (a === 'linieWeg') { if (!confirm('Diese Masslinie löschen?')) return; S.eingabeSichern = null; l.weg = true; l.zeit = b.zeit = jetzt(); speichern(); eingabeZu(); S.aktiv = null; zeichneBlatt(); }
     else if (a === 'weiter') gehe(1); else if (a === 'vor') gehe(-1); };
   sichtbarMachen(v, l, d);
   if (!stift) { inp.focus({preventScroll: true}); setTimeout(() => { if (document.activeElement !== inp && $('#eing') === d) inp.focus({preventScroll: true}); }, 80); }   // nach Touch kommen noch Maus-Ersatzereignisse
@@ -918,10 +937,10 @@ function grossbild(b, fid){
 GLM.beiStatus = () => { const k = $('#glm'); if (k) { k.textContent = GLM.text(); k.classList.toggle('primary', GLM.status === 'ok'); } };
 GLM.beiWert = w => {
   if (S.ansicht !== 'blatt') return; const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v) return;
-  const L = linienVon(v), id = S.aktiv || (L.find(l => !(b.werte[l.id] && b.werte[l.id].v != null)) || {}).id; if (!id) return;
+  const L = linienVon(v, b), id = S.aktiv || (L.find(l => !(b.werte[l.id] && b.werte[l.id].v != null)) || {}).id; if (!id) return;
   if (S.eingabeSichern && id !== S.aktiv) S.eingabeSichern();   // getippte Zahl im offenen Fenster nicht verlieren
   setzeWert(b, v, id, w, null); if (navigator.vibrate) navigator.vibrate(60);
-  if ($('#eing')) { const L2 = linienVon(v), k2 = L2.findIndex(l => l.id === id), n2 = L2.slice(k2 + 1).find(l => !erfasst(b, l.id)); S.eingabeSichern = null; eingabeZu(); const y = scrollY; zeichneBlatt(); scrollTo(0, y); if (n2) eingabe(b, v, n2.id, false, null); S.aktiv = n2 ? n2.id : null; return; }
+  if ($('#eing')) { const L2 = linienVon(v, b), k2 = L2.findIndex(l => l.id === id), n2 = L2.slice(k2 + 1).find(l => !erfasst(b, l.id)); S.eingabeSichern = null; eingabeZu(); const y = scrollY; zeichneBlatt(); scrollTo(0, y); if (n2) eingabe(b, v, n2.id, false, null); S.aktiv = n2 ? n2.id : null; return; }
   const k = L.findIndex(l => l.id === id), n = L.slice(k + 1).find(l => !(b.werte[l.id] && b.werte[l.id].v != null));
   S.aktiv = n ? n.id : null; const y = scrollY; zeichneBlatt(); scrollTo(0, y);
 };
@@ -964,7 +983,7 @@ async function pdfSpeichern(liste, leer){
     if (P.seite) page.drawPage(P.seite, {x: ox, y: oy, width: dw, height: dh}); else page.drawImage(P.bild, {x: ox, y: oy, width: dw, height: dh});
     page.drawRectangle({x: ox, y: oy, width: dw, height: dh, borderColor: rgb(.6, .6, .6), borderWidth: .5});
     // Masslinien
-    for (const l of linienVon(v)) {
+    for (const l of linienVon(v, b)) {
       const txt = sicher(fett, beschriftung(v, b, l, {modus: 'druck', leer})), G = geo(v, l, txt);
       for (const q of G.segs) page.drawLine({start: {x: X(q[0]), y: Y(q[1])}, end: {x: X(q[2]), y: Y(q[3])}, thickness: Math.max(q[5] ? .5 : .35, q[4] * k), color: ROTp});   // Druck: mind. 0,18 mm bzw. 0,12 mm
       const th = -G.wi * Math.PI / 180, c = Math.cos(th), s2 = Math.sin(th), cx = X(G.mx), cy = Y(G.my), hw = G.bw * k / 2, hh = G.bh * k / 2;
@@ -1034,7 +1053,7 @@ async function druckenHtml(liste, leer){
 }
 function csv(){
   const zeilen = [['Plan', 'Blatt', 'Nr', 'Bezeichnung', 'Plan mm', 'Ist mm', 'Differenz', 'Gemessen', 'Von']];
-  for (const v of aktiveVorlagen()) for (const b of blaetterVon(v.id)) for (const l of linienVon(v)) { const x = b.werte[l.id], so = soll(v, l);
+  for (const v of aktiveVorlagen()) for (const b of blaetterVon(v.id)) for (const l of linienVon(v, b)) { const x = b.werte[l.id], so = soll(v, l);
     zeilen.push([v.name, b.geschoss, l.nr, l.text || '', so != null ? so : '', x && x.v != null ? mmTxt(x.v) : (handVon(b, l.id) ? 'handschriftlich' : ''), x && x.v != null && so != null ? mmTxt(x.v - so) : '',
       x && x.zeit ? new Date(x.zeit).toLocaleString('de-CH') : '', x && x.von || '']); }
   const text = '﻿' + zeilen.map(z => z.map(f => /[;"\n]/.test(String(f)) ? '"' + String(f).replace(/"/g, '""') + '"' : f).join(';')).join('\r\n');
