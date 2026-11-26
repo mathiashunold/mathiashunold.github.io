@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1C5FD1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>Planaufmass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6EAEC; --surface:#FFFFFF; --surface-2:#F1F3F4; --ink:#1A2024; --muted:#5A656C;
+  --line:#CBD2D6; --accent:#1C5FD1; --on-accent:#FFFFFF; --warn:#B8323A; --warn-bg:#FBE9EA;
+  --ok:#1E7A46; --ok-bg:#E5F3EA; --shadow:0 6px 24px rgba(20,30,40,.10);
+  --font:"Barlow Semi Condensed","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171A; --surface:#1D2226; --surface-2:#252B30; --ink:#E4E8EB; --muted:#97A2A9;
+    --line:#343C42; --accent:#6AA2FF; --on-accent:#0A1830; --warn:#FF7378; --warn-bg:#3A1C1F;
+    --ok:#6FD39A; --ok-bg:#16301F; --shadow:0 6px 24px rgba(0,0,0,.4); color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.4;min-height:100vh;
+  padding:max(12px,env(safe-area-inset-top)) 12px max(24px,env(safe-area-inset-bottom))}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{max-width:860px;margin:0 auto}
+body.breit main{max-width:none}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin:0 0 12px}
+.top{display:flex;align-items:center;gap:10px;margin:4px 0 14px;flex-wrap:wrap}
+.top h1{flex:1;margin:0;font-size:24px;line-height:1.15;min-width:180px}
+.top small{display:block;font-size:14px;font-weight:500;color:var(--muted)}
+h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);
+  border-radius:10px;padding:8px 14px;font-size:16px;font-weight:600;min-height:44px;cursor:pointer;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.icon{width:44px;padding:0}
+.btn.klein{min-height:36px;padding:4px 10px;font-size:15px}
+.btn:disabled{opacity:.5}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+label{display:block;font-size:15px;font-weight:600;margin:10px 0 4px}
+.field{width:100%;font-size:18px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);min-height:48px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.grid3{display:grid;grid-template-columns:2fr 2fr 1fr;gap:8px}
+.hint{font-size:14px;color:var(--muted);margin:6px 0 0}
+.status{font-size:14px;color:var(--muted);margin:8px 0}
+.eintrag{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:12px;margin:0 0 8px;cursor:pointer;min-height:60px}
+.eintrag .n{flex:1;min-width:0}.eintrag b{display:block;font-size:18px}.eintrag .s{font-size:14px;color:var(--muted)}
+.vorlage{display:grid;grid-template-columns:160px minmax(0,1fr);gap:14px}
+@media (max-width:560px){.vorlage{grid-template-columns:1fr}}
+.vorlage img{width:100%;border-radius:8px;border:1px solid var(--line);background:#fff;aspect-ratio:4/3;object-fit:contain}
+.blaetter{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.blaetter .btn{min-height:40px}
+.blaetter .btn small{font-weight:500;color:inherit;opacity:.75}
+.seiten{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.seiten button{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:6px;cursor:pointer;text-align:left;font-weight:600;font-size:15px}
+.seiten button.fertig{border-color:var(--ok);box-shadow:0 0 0 2px var(--ok)}
+.seiten img{width:100%;display:block;background:#fff;border-radius:6px;margin-bottom:4px}
+.seiten small{display:block;font-weight:500;color:var(--muted)}
+.zuschnitt{position:relative;touch-action:none;user-select:none;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.zuschnitt canvas{display:block;width:100%;height:auto}
+.zuschnitt .rahmen{position:absolute;border:2px dashed #D0021B;background:rgba(208,2,27,.06);pointer-events:none}
+.werkzeuge{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
+.werkzeuge .trenner{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+.plan{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.plan svg{display:block;width:100%;height:calc(100vh - 250px);min-height:380px;touch-action:none;cursor:crosshair}
+.plan svg.pan{cursor:grab}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;align-items:start}
+@media (max-width:1000px){.layout{grid-template-columns:1fr}.plan svg{height:62vh}}
+.seite{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;max-height:calc(100vh - 160px);overflow:auto}
+@media (max-width:1000px){.seite{max-height:none}}
+table.masse{width:100%;border-collapse:collapse;font-size:16px}
+table.masse th{font-size:13px;color:var(--muted);text-align:left;font-weight:600;padding:4px}
+table.masse td{padding:3px 4px;border-top:1px solid var(--line);vertical-align:middle}
+table.masse tr.aktiv td{background:var(--surface-2)}
+table.masse .nr{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:13px;background:#D0021B;color:#fff;font-weight:700;font-size:14px}
+table.masse input{width:100%;min-width:70px;text-align:right;font-weight:700;font-size:19px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+table.masse input.text{text-align:left;font-weight:500;font-size:16px}
+table.masse .soll,table.masse .diff{text-align:right;white-space:nowrap;font-size:15px;color:var(--muted)}
+table.masse .diff.gross{color:var(--warn);font-weight:700}
+.sync{font-size:14px;color:var(--muted)}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;margin-top:8px;font-weight:600}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script src="lib/pdf.min.js"></script>
+<script src="glm.js"></script>
+<script>
+// Planaufmass (Beta): Grundrisse (PDF/Bild) hochladen, am PC rote Masslinien ziehen, je Typ und Geschoss ein leeres Blatt;
+// auf der Baustelle Masse am Tablet eintippen, mit Stift aufs Blatt schreiben oder vom Bosch übernehmen; Blätter leer oder ausgefüllt drucken.
+// Speichern: localStorage + IndexedDB (Planbilder, auch offline), privates Repo Branch «kontrolle», Ordner planaufmass/.
+(function(){
+'use strict';
+// ---------- Grundlagen ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+const jetzt = () => new Date().toISOString();
+const zahl = s => { const v = parseFloat(String(s).replace(/[\s’']/g, '').replace(',', '.')); return isFinite(v) ? v : null; };
+const mmTxt = v => v == null || v === '' || isNaN(v) ? '' : String(Math.round(v * 2) / 2).replace('.', ',');
+const neueId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const ROT = '#D0021B', BLAU = '#1C5FD1', TOL = 10;   // mm: Abweichung Ist ↔ Plan, ab der die Differenz rot erscheint
+const token = () => ls.get('upload-schluessel'), repo = () => ls.get('planung-repo');
+const BETA = ls.get('beta') === '1';
+const Q = new URLSearchParams(location.search);
+const ORDNER = 'planaufmass';
+let S = {ansicht: 'liste', nr: null, vid: null, bid: null, modus: 'linie', sel: null, aktiv: null, farbe: ROT, sync: '', imp: null, vb: {}};
+let index = ladeLokal('planaufmass-index') || {v: 1, auftraege: []};
+let daten = null;   // {v, auftrag:{nr,titel,zeit}, vorlagen:[], blaetter:[]}
+function ladeLokal(k){ try { return JSON.parse(ls.get(k) || 'null'); } catch(e){ return null; } }
+const aktiveVorlagen = () => (daten ? daten.vorlagen : []).filter(v => !v.weg);
+const blaetterVon = vid => (daten ? daten.blaetter : []).filter(b => !b.weg && b.vorlage === vid);
+const vorlage = id => daten && daten.vorlagen.find(v => v.id === id);
+const blatt = id => daten && daten.blaetter.find(b => b.id === id);
+const linienVon = v => (v.linien || []).filter(l => !l.weg);
+
+// ---------- GitHub (privates Repo, Branch «kontrolle») ----------
+const API = 'https://api.github.com', BRANCH = 'kontrolle';
+async function gh(method, p, body){
+  const r = await fetch(API + p, {method, headers: Object.assign({'Authorization': 'Bearer ' + token(), 'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'}, body ? {'Content-Type': 'application/json'} : {}), body: body ? JSON.stringify(body) : undefined});
+  if (r.status === 404) return null;
+  if (!r.ok) { const e = new Error('GitHub ' + r.status); e.status = r.status; throw e; }
+  return r.status === 204 ? {} : r.json();
+}
+const b64enc = s => btoa(unescape(encodeURIComponent(s))), b64dec = s => decodeURIComponent(escape(atob(s.replace(/\s/g, ''))));
+const pfad = p => '/repos/' + repo() + '/contents/' + p.split('/').map(encodeURIComponent).join('/');
+async function branchSicher(){
+  if (await gh('GET', '/repos/' + repo() + '/git/ref/heads/' + BRANCH)) return;
+  const main = await gh('GET', '/repos/' + repo() + '/git/ref/heads/main');
+  await gh('POST', '/repos/' + repo() + '/git/refs', {ref: 'refs/heads/' + BRANCH, sha: main.object.sha});
+}
+async function holeJson(p){   // über raw, damit auch Dateien > 1 MB gehen
+  const r = await fetch(API + pfad(p) + '?ref=' + BRANCH, {headers: {'Authorization': 'Bearer ' + token(), 'Accept': 'application/vnd.github.raw'}});
+  if (r.status === 404) return {sha: null, d: null};
+  if (!r.ok) { const e = new Error('GitHub ' + r.status); e.status = r.status; throw e; }
+  const d = await r.json(), m = await gh('GET', pfad(p) + '?ref=' + BRANCH + '&_=' + Date.now()).catch(() => null);
+  return {sha: m && m.sha, d};
+}
+async function schreibe(p, inhaltB64, sha, msg){ return gh('PUT', pfad(p), {message: msg, content: inhaltB64, branch: BRANCH, ...(sha ? {sha} : {})}); }
+const online = () => !!(token() && repo() && navigator.onLine);
+
+// ---------- Zusammenführen (mehrere Geräte): je Objekt gewinnt der neuere Zeitstempel, Masswerte und Striche einzeln ----------
+const neuer = (x, y) => (!x ? y : !y ? x : ((x.zeit || '') >= (y.zeit || '') ? x : y));
+function mischeIndex(a, b){
+  const m = {}; for (const q of [a, b]) for (const x of (q && q.auftraege) || []) m[x.nr] = neuer(m[x.nr], x);
+  return {v: 1, auftraege: Object.values(m).sort((x, y) => String(y.zeit).localeCompare(String(x.zeit)))};
+}
+function mischeBlatt(a, b){
+  if (!a || !b) return a || b;
+  const n = Object.assign({}, neuer(a, b)), werte = {};
+  for (const q of [a, b]) for (const [k, w] of Object.entries(q.werte || {})) werte[k] = neuer(werte[k], w);
+  const ink = {}; for (const q of [a, b]) for (const s of q.ink || []) ink[s.id] = neuer(ink[s.id], s);
+  n.werte = werte; n.ink = Object.values(ink).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || '')); return n;
+}
+function mischeDaten(a, b){
+  if (!a) return b; if (!b) return a;
+  const v = {}, bl = {};
+  for (const q of [a, b]) for (const x of q.vorlagen || []) v[x.id] = neuer(v[x.id], x);
+  for (const q of [a, b]) for (const x of q.blaetter || []) bl[x.id] = mischeBlatt(bl[x.id], x);
+  const sort = o => Object.values(o).sort((x, y) => (x.erstellt || '').localeCompare(y.erstellt || ''));
+  return {v: 1, auftrag: neuer(a.auftrag, b.auftrag), vorlagen: sort(v), blaetter: sort(bl)};
+}
+let syncT = 0, laeuft = false;
+function speichern(){
+  if (daten) ls.set('planaufmass-' + daten.auftrag.nr, JSON.stringify(daten));
+  ls.set('planaufmass-index', JSON.stringify(index));
+  clearTimeout(syncT); syncT = setTimeout(hochladen, 2000);
+}
+function merkeIndex(){
+  if (!daten) return; const a = daten.auftrag, i = index.auftraege.findIndex(x => x.nr === a.nr);
+  const e = {nr: a.nr, titel: a.titel || '', vorlagen: aktiveVorlagen().length, blaetter: daten.blaetter.filter(b => !b.weg).length, zeit: jetzt()};
+  if (i >= 0) index.auftraege[i] = e; else index.auftraege.unshift(e);
+}
+async function hochladen(versuch){
+  if (!token() || !repo()) { S.sync = 'Nur auf diesem Gerät gespeichert (kein Upload-Schlüssel – in der Übersicht einfügen).'; return zeigeSync(); }
+  if (!navigator.onLine) { S.sync = 'Offline – auf dem Gerät gespeichert, wird später hochgeladen.'; return zeigeSync(); }
+  if (laeuft) { clearTimeout(syncT); syncT = setTimeout(hochladen, 1500); return; }
+  laeuft = true; S.sync = 'Speichere …'; zeigeSync();
+  try {
+    await branchSicher();
+    await bilderHochladen();
+    const fi = await holeJson(ORDNER + '/index.json'); index = mischeIndex(fi.d, index); ls.set('planaufmass-index', JSON.stringify(index));
+    await schreibe(ORDNER + '/index.json', b64enc(JSON.stringify(index, null, 1)), fi.sha, 'Planaufmass: Auftragsliste');
+    if (daten) {
+      const p = ORDNER + '/' + daten.auftrag.nr + '.json', f = await holeJson(p);
+      daten = mischeDaten(f.d, daten); ls.set('planaufmass-' + daten.auftrag.nr, JSON.stringify(daten));
+      await schreibe(p, b64enc(JSON.stringify(daten)), f.sha, 'Planaufmass ' + daten.auftrag.nr);
+    }
+    S.sync = 'Gespeichert für alle Geräte · ' + new Date().toLocaleTimeString('de-CH', {hour: '2-digit', minute: '2-digit'});
+  } catch(e) {
+    laeuft = false;
+    if ((e.status === 409 || e.status === 422) && !versuch) return hochladen(1);
+    S.sync = e.status === 401 ? 'Upload-Schlüssel ungültig – in der Übersicht neu einfügen. Auf dem Gerät gespeichert.'
+           : 'Hochladen fehlgeschlagen (' + (e.status || e.message) + '). Auf dem Gerät gespeichert.';
+  }
+  laeuft = false; zeigeSync();
+}
+function zeigeSync(){ const el = $('#sync'); if (el) el.textContent = S.sync; }
+
+// ---------- Planbilder: IndexedDB (bleiben im Gerät für die Baustelle), danach ins Repo ----------
+let idb = null;
+function db(){ return idb || (idb = new Promise((ok, err) => { const r = indexedDB.open('planaufmass', 1);
+  r.onupgradeneeded = () => { r.result.createObjectStore('bilder'); r.result.createObjectStore('offen'); };
+  r.onsuccess = () => ok(r.result); r.onerror = () => err(r.error); })); }
+async function idbTx(store, mode, fn){ const d = await db(); return new Promise((ok, err) => { const t = d.transaction(store, mode); const r = fn(t.objectStore(store));
+  t.oncomplete = () => ok(r && r.result); t.onerror = () => err(t.error); }); }
+const bildSetzen = (k, v) => idbTx('bilder', 'readwrite', s => s.put(v, k)), bildHolen = k => idbTx('bilder', 'readonly', s => s.get(k));
+const offenSetzen = k => idbTx('offen', 'readwrite', s => s.put(1, k)), offenWeg = k => idbTx('offen', 'readwrite', s => s.delete(k)),
+      offenListe = () => idbTx('offen', 'readonly', s => s.getAllKeys());
+const blobB64 = b => new Promise(ok => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(b); });
+async function bilderHochladen(){
+  for (const k of (await offenListe().catch(() => [])) || []) {
+    const blob = await bildHolen(k); if (!blob) { await offenWeg(k); continue; }
+    const da = await gh('GET', pfad(k) + '?ref=' + BRANCH);
+    if (!da) await schreibe(k, await blobB64(blob), null, 'Planaufmass: Plan');
+    await offenWeg(k);
+  }
+}
+const bildUrls = {}, bildBlobs = {};
+async function bildUrl(k){
+  if (!k) return ''; if (bildUrls[k]) return bildUrls[k];
+  let blob = await bildHolen(k).catch(() => null);
+  if (!blob && online()) {
+    const r = await fetch(API + pfad(k) + '?ref=' + BRANCH, {headers: {'Authorization': 'Bearer ' + token(), 'Accept': 'application/vnd.github.raw'}});
+    if (r.ok) { blob = await r.blob(); bildSetzen(k, blob).catch(() => {}); }   // für die Baustelle im Gerät behalten
+  }
+  if (blob) bildBlobs[k] = blob;
+  return blob ? (bildUrls[k] = URL.createObjectURL(blob)) : '';
+}
+
+// ---------- Massstab: mm in Wirklichkeit pro Bildpunkt ----------
+function mmProPx(v){ return v.kalib || (v.ptProPx && v.massstab ? v.ptProPx * 25.4 / 72 * v.massstab : null); }
+function laenge(l){ return Math.hypot(l.x2 - l.x1, l.y2 - l.y1); }
+function soll(v, l){ if (l.soll != null && l.soll !== '') return +l.soll; const f = mmProPx(v); return f ? Math.round(laenge(l) * f) : null; }
+function nummeriere(v){ linienVon(v).forEach((l, i) => { l.nr = i + 1; }); }
+
+// ---------- Plan zeichnen (SVG in Bildpunkten des Plans) – gemeinsam für Bearbeiten, Blatt und Druck ----------
+function planInhalt(v, b, opt){
+  const F = Math.max(v.w, v.h) / 100 * (v.gr || 1), sw = F * .13;
+  let s = opt.url ? `<image href="${opt.url}" x="0" y="0" width="${v.w}" height="${v.h}"/>` : `<rect width="${v.w}" height="${v.h}" fill="#fff"/>`;
+  for (const l of linienVon(v)) {
+    const L = laenge(l) || 1, ux = (l.x2 - l.x1) / L, uy = (l.y2 - l.y1) / L; let nx = -uy, ny = ux;
+    if (ny > 0 || (Math.abs(ny) < 1e-6 && nx > 0)) { nx = -nx; ny = -ny; }       // Beschriftung oberhalb bzw. links der Linie
+    const t = F * .55, mx = (l.x1 + l.x2) / 2 + nx * F * 1.2, my = (l.y1 + l.y2) / 2 + ny * F * 1.2;
+    const sel = opt.sel === l.id, akt = opt.aktiv === l.id, farbe = sel ? BLAU : ROT;
+    const w = b && b.werte && b.werte[l.id], wert = w && w.v != null ? mmTxt(w.v) : '';
+    const so = soll(v, l), txt = opt.modus === 'vorlage' ? (so != null ? '≈ ' + so : '') : (opt.leer ? '' : wert);
+    const bw = Math.max(F * 3.6, (txt.length * .58 + 1) * F), bx = mx + F * .9;
+    s += `<g class="ml" data-l="${l.id}">
+      <line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="transparent" stroke-width="${F * 1.4}"/>
+      <line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="${farbe}" stroke-width="${sel ? sw * 1.8 : sw}"/>
+      <line x1="${l.x1 + nx * t}" y1="${l.y1 + ny * t}" x2="${l.x1 - nx * t}" y2="${l.y1 - ny * t}" stroke="${farbe}" stroke-width="${sw}"/>
+      <line x1="${l.x2 + nx * t}" y1="${l.y2 + ny * t}" x2="${l.x2 - nx * t}" y2="${l.y2 - ny * t}" stroke="${farbe}" stroke-width="${sw}"/>
+      <line x1="${l.x1 + (ux - nx) * t * .7}" y1="${l.y1 + (uy - ny) * t * .7}" x2="${l.x1 - (ux - nx) * t * .7}" y2="${l.y1 - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw}"/>
+      <line x1="${l.x2 + (ux - nx) * t * .7}" y1="${l.y2 + (uy - ny) * t * .7}" x2="${l.x2 - (ux - nx) * t * .7}" y2="${l.y2 - (uy - ny) * t * .7}" stroke="${farbe}" stroke-width="${sw}"/>
+      <circle cx="${mx}" cy="${my}" r="${F * .78}" fill="${farbe}"/>
+      <text x="${mx}" y="${my + F * .36}" font-size="${F}" font-weight="700" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif">${l.nr}</text>
+      <rect x="${bx}" y="${my - F * .78}" width="${bw}" height="${F * 1.56}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.2 : sw * .8}"/>
+      <text x="${bx + F * .45}" y="${my + F * .38}" font-size="${F * 1.05}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>
+    </g>`;
+    if (opt.modus === 'vorlage' && sel) s += [[l.x1, l.y1, 1], [l.x2, l.y2, 2]].map(([x, y, e]) =>
+      `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .7}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw}" style="cursor:move"/>`).join('');
+  }
+  if (b) for (const st of (b.ink || []).filter(x => !x.weg)) s += `<polyline points="${st.p.join(' ')}" fill="none" stroke="${st.f || ROT}" stroke-width="${F * (st.d || .16)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (opt.vorschau) s += opt.vorschau;
+  return s;
+}
+
+// ---------- Zoomen/Verschieben (Mausrad, Ziehen, zwei Finger) ----------
+function toPlan(svg, e){ const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+function setzeVb(svg, key){ const vb = S.vb[key]; svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+function einpassen(key, v){ S.vb[key] = {x: 0, y: 0, w: v.w, h: v.h}; }
+function zoom(svg, key, f, cx, cy){ const vb = S.vb[key]; vb.x = cx - (cx - vb.x) * f; vb.y = cy - (cy - vb.y) * f; vb.w *= f; vb.h *= f; setzeVb(svg, key); }
+function planSteuerung(svg, key, h){   // h: {start(e,p) → true, wenn eine eigene Aktion beginnt; bewege(e,p); ende(e,p); tipp(e,p); stift(e)}
+  const ptr = new Map(); let pinch = null, pan = null, eigen = false, bewegt = false, start = null;
+  svg.addEventListener('wheel', e => { e.preventDefault(); const p = toPlan(svg, e); zoom(svg, key, Math.exp(e.deltaY * .0015), p.x, p.y); }, {passive: false});
+  svg.addEventListener('contextmenu', e => e.preventDefault());
+  svg.addEventListener('pointerdown', e => {
+    svg.setPointerCapture(e.pointerId); ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); bewegt = false; start = {x: e.clientX, y: e.clientY};
+    if (ptr.size === 2) { if (eigen && h.abbruch) h.abbruch(); eigen = false; pan = null;
+      const [a, c] = [...ptr.values()]; pinch = {d: Math.hypot(a.x - c.x, a.y - c.y), m: {x: (a.x + c.x) / 2, y: (a.y + c.y) / 2}}; return; }
+    if (ptr.size > 2) return;
+    const p = toPlan(svg, e);
+    if (e.button === 0 && !(e.pointerType === 'touch' && h.stift && h.stift()) && h.start && h.start(e, p)) { eigen = true; return; }
+    pan = {x: e.clientX, y: e.clientY};
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!ptr.has(e.pointerId)) return; ptr.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) bewegt = true;
+    if (pinch && ptr.size === 2) { const [a, c] = [...ptr.values()], d = Math.hypot(a.x - c.x, a.y - c.y), m = {x: (a.x + c.x) / 2, y: (a.y + c.y) / 2};
+      const ctm = svg.getScreenCTM(), vb = S.vb[key];
+      vb.x -= (m.x - pinch.m.x) / ctm.a; vb.y -= (m.y - pinch.m.y) / ctm.d;
+      const q = toPlan(svg, {clientX: m.x, clientY: m.y}); zoom(svg, key, pinch.d / Math.max(d, 1), q.x, q.y); pinch = {d, m}; return; }
+    if (eigen) return h.bewege && h.bewege(e, toPlan(svg, e));
+    if (pan) { const ctm = svg.getScreenCTM(), vb = S.vb[key]; vb.x -= (e.clientX - pan.x) / ctm.a; vb.y -= (e.clientY - pan.y) / ctm.d; pan = {x: e.clientX, y: e.clientY}; setzeVb(svg, key); }
+  });
+  const ende = e => {
+    if (!ptr.has(e.pointerId)) return; ptr.delete(e.pointerId);
+    if (pinch) { if (ptr.size < 2) pinch = null; return; }
+    if (eigen) { eigen = false; if (h.ende) h.ende(e, toPlan(svg, e)); return; }
+    if (pan && !bewegt && h.tipp) h.tipp(e, toPlan(svg, e));
+    pan = null;
+  };
+  svg.addEventListener('pointerup', ende); svg.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); pinch = null; pan = null; if (eigen && h.abbruch) h.abbruch(); eigen = false; });
+}
+const zoomKnoepfe = () => `<button class="btn klein" type="button" data-z="1.4" aria-label="Verkleinern">−</button><button class="btn klein" type="button" data-z="0.7" aria-label="Vergrössern">+</button><button class="btn klein" type="button" data-z="0">Einpassen</button>`;
+function zoomVerdrahten(svg, key, v){ document.querySelectorAll('[data-z]').forEach(k => k.onclick = () => { const f = +k.dataset.z;
+  if (!f) { einpassen(key, v); setzeVb(svg, key); return; } const vb = S.vb[key]; zoom(svg, key, f, vb.x + vb.w / 2, vb.y + vb.h / 2); }); }
+
+// ---------- Ansichten ----------
+function zeichne(){
+  document.body.classList.toggle('breit', S.ansicht === 'vorlage' || S.ansicht === 'blatt');
+  if (!BETA) {
+    $('#app').innerHTML = `<div class="card"><h1>Planaufmass</h1><p>Diese Funktion ist im Test und nur mit dem <b>Beta-Passwort</b> verfügbar.</p>
+      <a class="btn primary" href="./">Zur Übersicht</a></div>`; return;
+  }
+  if (S.ansicht === 'import') return zeichneImport();
+  if (S.ansicht === 'vorlage') return zeichneVorlage();
+  if (S.ansicht === 'blatt') return zeichneBlatt();
+  if (S.ansicht === 'auftrag') return zeichneAuftrag();
+  zeichneListe();
+}
+function zeichneListe(){
+  $('#app').innerHTML = `<div class="top"><a class="btn icon" href="./" aria-label="Zur Übersicht">‹</a><h1>Planaufmass<small>Grundriss mit roten Masslinien – am Tablet ausfüllen oder drucken</small></h1></div>
+    <div class="card"><h2 style="margin-top:0">Neuer Aufmass-Auftrag</h2>
+      <div class="grid2"><div><label for="nNr">Auftrags-Nr.</label><input class="field" id="nNr" inputmode="numeric" placeholder="26412" value="${esc(Q.get('nr') || '')}"></div>
+      <div><label for="nTitel">Objekt</label><input class="field" id="nTitel" placeholder="Gotthardstrasse Thalwil" value="${esc(Q.get('titel') || '')}"></div></div>
+      <div class="acts"><button class="btn primary" type="button" id="nAnlegen">Anlegen</button></div></div>
+    ${index.auftraege.length ? '<h2>Aufträge</h2>' : ''}
+    ${index.auftraege.map(a => `<button class="eintrag" type="button" data-nr="${esc(a.nr)}"><span class="n"><b>${esc(a.nr)} ${esc(a.titel || '')}</b>
+      <span class="s">${a.vorlagen || 0} Pläne · ${a.blaetter || 0} Blätter</span></span><span aria-hidden="true">›</span></button>`).join('')}
+    <p class="sync" id="sync">${esc(S.sync)}</p>`;
+  $('#nAnlegen').onclick = () => { const nr = $('#nNr').value.trim(); if (!nr) return $('#nNr').focus(); oeffneAuftrag(nr, $('#nTitel').value.trim()); };
+  document.querySelectorAll('[data-nr]').forEach(b => b.onclick = () => oeffneAuftrag(b.dataset.nr));
+}
+function oeffneAuftrag(nr, titel){
+  daten = ladeLokal('planaufmass-' + nr) || {v: 1, auftrag: {nr, titel: titel || '', zeit: jetzt()}, vorlagen: [], blaetter: []};
+  if (titel && !daten.auftrag.titel) Object.assign(daten.auftrag, {titel, zeit: jetzt()});
+  merkeIndex(); S.ansicht = 'auftrag'; S.nr = nr; history.replaceState(null, '', '?nr=' + encodeURIComponent(nr)); zeichne(); speichern();
+  if (online()) holeJson(ORDNER + '/' + nr + '.json').then(f => { if (f.d && daten && daten.auftrag.nr === nr) { daten = mischeDaten(f.d, daten);
+    ls.set('planaufmass-' + nr, JSON.stringify(daten)); merkeIndex(); if (S.ansicht === 'auftrag') zeichne(); } }).catch(() => {});
+}
+function fortschritt(b){ const v = vorlage(b.vorlage), n = v ? linienVon(v).length : 0, g = v ? linienVon(v).filter(l => b.werte[l.id] && b.werte[l.id].v != null).length : 0; return {n, g}; }
+function zeichneAuftrag(){
+  const a = daten.auftrag;
+  $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zur Auftragsliste">‹</button>
+      <h1>Planaufmass ${esc(a.nr)}<small>${esc(a.titel || '')}</small></h1></div>
+    <div class="card"><h2 style="margin-top:0">Plan hochladen</h2>
+      <p class="hint" style="margin-top:0">PDF vom Architekten oder Bild. Je Seite den Grundriss ausschneiden, Typ und Geschosse angeben – am besten am PC.</p>
+      <div class="acts"><label class="btn primary" style="margin:0">PDF oder Bild wählen<input type="file" id="datei" accept="application/pdf,image/*" hidden></label></div></div>
+    ${aktiveVorlagen().map(v => { const bl = blaetterVon(v.id), f = mmProPx(v);
+      return `<div class="card vorlage"><img data-bild="${esc(v.bild)}" alt="Plan ${esc(v.name)}">
+        <div><input class="field" data-vname="${v.id}" value="${esc(v.name)}" aria-label="Name des Plans" style="font-weight:700">
+          <p class="hint">${linienVon(v).length} Masslinien · ${f ? (v.kalib ? 'Massstab eingemessen' : 'Massstab 1:' + v.massstab) : 'ohne Massstab'}${v.quelle ? ' · ' + esc(v.quelle) : ''}</p>
+          <div class="acts"><button class="btn primary" type="button" data-vbearb="${v.id}">Masslinien ziehen</button>
+            <button class="btn" type="button" data-vdruck="${v.id}">Leer drucken</button><button class="btn" type="button" data-vweg="${v.id}">Löschen</button></div>
+          <label>Blätter (Geschoss / Wohnung)</label>
+          <div class="blaetter">${bl.map(b => { const p = fortschritt(b); return `<button class="btn${p.g && p.g === p.n ? ' primary' : ''}" type="button" data-blatt="${b.id}">${esc(b.geschoss)} <small>${p.g}/${p.n}</small></button>`; }).join('') || '<span class="hint">Noch keine Blätter.</span>'}</div>
+          <div class="acts"><input class="field" data-gneu="${v.id}" placeholder="z. B. 2. OG" style="flex:1;min-width:120px"><button class="btn" type="button" data-gplus="${v.id}">+ Blatt</button></div>
+        </div></div>`; }).join('')}
+    ${aktiveVorlagen().length ? `<div class="card"><h2 style="margin-top:0">Alle Blätter</h2><div class="acts">
+      <button class="btn" type="button" id="alleLeer">Alle leer drucken</button><button class="btn" type="button" id="alleVoll">Alle mit Massen drucken</button>
+      <button class="btn" type="button" id="csv">Masse als Excel/CSV</button></div></div>` : ''}
+    <p class="sync" id="sync">${esc(S.sync)}</p>`;
+  $('#zurueck').onclick = () => { S.ansicht = 'liste'; daten = null; history.replaceState(null, '', location.pathname); zeichne(); };
+  $('#datei').onchange = ev => { const f = ev.target.files[0]; ev.target.value = ''; if (f) starteImport(f); };
+  document.querySelectorAll('img[data-bild]').forEach(async i => { const u = await bildUrl(i.dataset.bild); if (u) i.src = u; });
+  document.querySelectorAll('[data-vname]').forEach(i => i.onchange = () => { const v = vorlage(i.dataset.vname); v.name = i.value.trim() || v.name; v.zeit = jetzt(); speichern(); });
+  document.querySelectorAll('[data-vbearb]').forEach(b => b.onclick = () => { S.vid = b.dataset.vbearb; S.sel = null; S.modus = 'linie'; S.ansicht = 'vorlage'; zeichne(); });
+  document.querySelectorAll('[data-vdruck]').forEach(b => b.onclick = () => drucken(blaetterVon(b.dataset.vdruck).length ? blaetterVon(b.dataset.vdruck) : [{vorlage: b.dataset.vdruck, geschoss: '', werte: {}}], true));
+  document.querySelectorAll('[data-vweg]').forEach(b => b.onclick = () => { const v = vorlage(b.dataset.vweg);
+    if (!confirm('Plan «' + v.name + '» mit allen Blättern löschen?')) return;
+    v.weg = true; v.zeit = jetzt(); blaetterVon(v.id).forEach(x => { x.weg = true; x.zeit = jetzt(); }); merkeIndex(); speichern(); zeichne(); });
+  document.querySelectorAll('[data-blatt]').forEach(b => b.onclick = () => { S.bid = b.dataset.blatt; S.aktiv = null; S.modus = 'ansehen'; S.ansicht = 'blatt'; zeichne(); });
+  const plus = vid => { const i = document.querySelector(`[data-gneu="${vid}"]`), g = i.value.trim(); if (!g) return i.focus(); neuesBlatt(vid, g); merkeIndex(); speichern(); zeichne(); };
+  document.querySelectorAll('[data-gplus]').forEach(b => b.onclick = () => plus(b.dataset.gplus));
+  document.querySelectorAll('[data-gneu]').forEach(i => i.onkeydown = e => { if (e.key === 'Enter') plus(i.dataset.gneu); });
+  if ($('#alleLeer')) { $('#alleLeer').onclick = () => drucken(alleBlaetter(), true); $('#alleVoll').onclick = () => drucken(alleBlaetter(), false); $('#csv').onclick = csv; }
+}
+const alleBlaetter = () => aktiveVorlagen().flatMap(v => blaetterVon(v.id));
+function neuesBlatt(vid, geschoss){ const b = {id: neueId(), vorlage: vid, geschoss, werte: {}, ink: [], notiz: '', erstellt: jetzt(), zeit: jetzt()}; daten.blaetter.push(b); return b; }
+
+// ---------- Import: PDF-Seite wählen, Grundriss ausschneiden, Typ + Geschosse ----------
+async function starteImport(datei){
+  const I = S.imp = {datei: datei.name, seiten: [], seite: null, rect: null, fertig: {}}; S.ansicht = 'import'; zeichne();
+  try {
+    if (/pdf$/i.test(datei.type) || /\.pdf$/i.test(datei.name)) {
+      if (!window.pdfjsLib) throw new Error('PDF-Leser fehlt');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+      S.imp.pdf = await pdfjsLib.getDocument({data: await datei.arrayBuffer()}).promise;
+      for (let n = 1; n <= S.imp.pdf.numPages; n++) {
+        if (S.ansicht !== 'import' || S.imp !== I) return;
+        const page = await S.imp.pdf.getPage(n), vp1 = page.getViewport({scale: 1}), sc = 260 / vp1.width, vp = page.getViewport({scale: sc});
+        const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+        await page.render({canvasContext: ctx, viewport: vp}).promise;
+        const text = (await page.getTextContent()).items.map(i => i.str).join(' ');
+        S.imp.seiten.push({n, thumb: c.toDataURL('image/jpeg', .7), ...vorschlag(text, n), wpt: vp1.width, hpt: vp1.height});
+        if (I.seite == null) zeichneImport();
+      }
+    } else {
+      const img = await createImageBitmap(datei);
+      S.imp.bild = img; S.imp.seiten.push({n: 1, name: datei.name.replace(/\.[^.]+$/, ''), geschosse: '', massstab: '', wpt: img.width, hpt: img.height});
+      S.imp.seite = 1; zeichneImport();
+    }
+  } catch(e) { I.fehler = 'Datei konnte nicht gelesen werden: ' + e.message; if (S.imp === I && S.ansicht === 'import') zeichneImport(); }
+}
+function vorschlag(text, n){   // Name, Geschosse und Massstab aus dem Plantext (z. B. «Küchen Typ 1», «2. & 3. OG», «Massstab: 1:20»)
+  const t = text.replace(/\s+/g, ' ');
+  const name = (t.match(/K(?:ü|ue)chen Typ \d+\w?/i) || t.match(/\bTyp \d+\w?/) || [])[0] || 'Seite ' + n;
+  let g = '', m = t.match(/(\d+)\.\s*(?:&|und|\+|,|\/)\s*(\d+)\.\s*OG/);
+  if (m) g = m[1] + '. OG, ' + m[2] + '. OG'; else if ((m = t.match(/(\d+)\.\s*OG/))) g = m[1] + '. OG'; else if (/\bEG\b/.test(t)) g = 'EG';
+  // Massstab: zuerst beim Massstabsbalken («1:20 0.50 1m»), sonst die erste Angabe nach «Massstab»
+  const i = t.search(/Massstab/i), ms = (t.match(/\b1\s*:\s*(\d{1,3})\s+0[.,]\d/) || (i >= 0 && t.slice(i).match(/\b1\s*:\s*(\d{1,3})\b/)) || [])[1] || '';
+  return {name, geschosse: g, massstab: ms};
+}
+function zeichneImport(){
+  const I = S.imp; if (!I) return;
+  if (I.seite == null) {
+    $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück">‹</button><h1>Seite wählen<small>${esc(I.datei)}</small></h1>
+      <button class="btn primary" type="button" id="fertig">Fertig</button></div>
+      ${I.fehler ? `<p class="warn">${esc(I.fehler)}</p>` : ''}
+      <p class="hint">Seite antippen → Grundriss mit einem Rahmen ausschneiden. Grün = schon übernommen. ${I.pdf && I.seiten.length < I.pdf.numPages ? 'Lade Seite ' + (I.seiten.length + 1) + ' von ' + I.pdf.numPages + ' …' : ''}</p>
+      <div class="seiten">${I.seiten.map(s => `<button type="button" data-s="${s.n}" class="${I.fertig[s.n] ? 'fertig' : ''}"><img src="${s.thumb}" alt="">Seite ${s.n}: ${esc(s.name)}<small>${esc(s.geschosse || '–')}${s.massstab ? ' · 1:' + esc(s.massstab) : ''}</small></button>`).join('')}</div>`;
+    const weg = () => { S.imp = null; S.ansicht = 'auftrag'; zeichne(); };
+    $('#zurueck').onclick = weg; $('#fertig').onclick = weg;
+    document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { I.seite = +b.dataset.s; I.rect = null; zeichneImport(); });
+    return;
+  }
+  const s = I.seiten.find(x => x.n === I.seite);
+  $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zur Seitenwahl">‹</button><h1>Grundriss ausschneiden<small>Seite ${s.n} · ${esc(I.datei)}</small></h1></div>
+    <div class="card"><p class="hint" style="margin-top:0">Mit der Maus (oder dem Finger) einen Rahmen um den Grundriss ziehen. Ohne Rahmen wird die ganze Seite übernommen.</p>
+      <div class="zuschnitt" id="zs"><canvas id="zc"></canvas><div class="rahmen" id="zr" hidden></div></div>
+      <div class="grid3"><div><label for="iName">Name / Typ</label><input class="field" id="iName" value="${esc(s.name)}"></div>
+        <div><label for="iGesch">Geschosse (je ein Blatt)</label><input class="field" id="iGesch" value="${esc(s.geschosse)}" placeholder="2. OG, 3. OG"></div>
+        <div><label for="iMs">Massstab 1:</label><input class="field" id="iMs" inputmode="numeric" value="${esc(s.massstab)}" placeholder="20"></div></div>
+      <p class="hint">Mit Massstab zeigt jede Masslinie gleich das Planmass. Ohne: später mit einem bekannten Mass einmessen.</p>
+      <div class="acts"><button class="btn" type="button" id="ganz">Rahmen weg (ganze Seite)</button><button class="btn primary" type="button" id="uebernehmen">Übernehmen</button></div>
+      <p class="status" id="istatus"></p></div>`;
+  $('#zurueck').onclick = () => { I.seite = null; zeichneImport(); };
+  const c = $('#zc'), box = $('#zs'), rr = $('#zr');
+  (async () => {
+    const breite = Math.min(1800, Math.round(box.clientWidth * (devicePixelRatio || 1)));
+    if (I.pdf) { const page = await I.pdf.getPage(s.n), sc = breite / s.wpt, vp = page.getViewport({scale: sc});
+      c.width = Math.round(vp.width); c.height = Math.round(vp.height); const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      await page.render({canvasContext: ctx, viewport: vp}).promise; }
+    else { c.width = breite; c.height = Math.round(breite * s.hpt / s.wpt); c.getContext('2d').drawImage(I.bild, 0, 0, c.width, c.height); }
+    zeigeRahmen();
+  })();
+  function zeigeRahmen(){ const r = I.rect; rr.hidden = !r; if (!r) return; const k = box.clientWidth / s.wpt;
+    Object.assign(rr.style, {left: r.x * k + 'px', top: r.y * k + 'px', width: r.w * k + 'px', height: r.h * k + 'px'}); }
+  const punkt = e => { const b = box.getBoundingClientRect(), k = s.wpt / b.width; return {x: Math.max(0, Math.min(s.wpt, (e.clientX - b.left) * k)), y: Math.max(0, Math.min(s.hpt, (e.clientY - b.top) * k))}; };
+  let a0 = null;
+  box.onpointerdown = e => { box.setPointerCapture(e.pointerId); a0 = punkt(e); I.rect = null; zeigeRahmen(); };
+  box.onpointermove = e => { if (!a0) return; const p = punkt(e); I.rect = {x: Math.min(a0.x, p.x), y: Math.min(a0.y, p.y), w: Math.abs(p.x - a0.x), h: Math.abs(p.y - a0.y)}; zeigeRahmen(); };
+  box.onpointerup = () => { a0 = null; if (I.rect && (I.rect.w < s.wpt * .02 || I.rect.h < s.hpt * .02)) { I.rect = null; zeigeRahmen(); } };
+  $('#ganz').onclick = () => { I.rect = null; zeigeRahmen(); };
+  $('#uebernehmen').onclick = async () => {
+    const st = $('#istatus'), kn = $('#uebernehmen'); kn.disabled = true; st.textContent = 'Plan wird in hoher Auflösung erstellt …';
+    try {
+      const r = I.rect || {x: 0, y: 0, w: s.wpt, h: s.hpt}, sc = I.pdf ? Math.min(300 / 72, 4800 / Math.max(r.w, r.h)) : Math.min(1, 4800 / Math.max(r.w, r.h));
+      const cv = document.createElement('canvas'); cv.width = Math.round(r.w * sc); cv.height = Math.round(r.h * sc);
+      const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+      if (I.pdf) { const page = await I.pdf.getPage(s.n); await page.render({canvasContext: ctx, viewport: page.getViewport({scale: sc, offsetX: -r.x * sc, offsetY: -r.y * sc})}).promise; }
+      else ctx.drawImage(I.bild, r.x, r.y, r.w, r.h, 0, 0, cv.width, cv.height);
+      const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .86));
+      const id = neueId(), key = ORDNER + '/' + daten.auftrag.nr + '/' + id + '.jpg';
+      await bildSetzen(key, blob); await offenSetzen(key);
+      const name = $('#iName').value.trim() || s.name, ms = zahl($('#iMs').value);
+      const v = {id, name, bild: key, w: cv.width, h: cv.height, ptProPx: I.pdf ? 1 / sc : null, massstab: I.pdf && ms ? ms : null, kalib: null, gr: 1,
+        quelle: I.datei + (I.pdf ? ', Seite ' + s.n : ''), linien: [], erstellt: jetzt(), zeit: jetzt()};
+      daten.vorlagen.push(v);
+      for (const g of $('#iGesch').value.split(/[,;]+/).map(x => x.trim()).filter(Boolean)) neuesBlatt(id, g);
+      if (!blaetterVon(id).length) neuesBlatt(id, 'Blatt 1');
+      merkeIndex(); speichern();
+      I.fertig[s.n] = true; Object.assign(s, {name, geschosse: $('#iGesch').value, massstab: $('#iMs').value});
+      if (I.pdf && I.pdf.numPages > 1) { I.seite = null; zeichneImport(); } else { S.imp = null; S.vid = id; S.sel = null; S.modus = 'linie'; S.ansicht = 'vorlage'; zeichne(); }
+    } catch(e) { st.textContent = 'Fehler: ' + e.message; kn.disabled = false; }
+  };
+}
+
+// ---------- Vorlage bearbeiten (PC): rote Masslinien ziehen ----------
+function zeichneVorlage(){
+  const v = vorlage(S.vid); if (!v) { S.ansicht = 'auftrag'; return zeichne(); }
+  const key = 'v' + v.id; if (!S.vb[key]) einpassen(key, v);
+  const l = S.sel && linienVon(v).find(x => x.id === S.sel), f = mmProPx(v);
+  $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zum Auftrag">‹</button>
+      <h1>${esc(v.name)}<small>Masslinien ziehen · ${linienVon(v).length} Linien · Blätter: ${blaetterVon(v.id).map(b => esc(b.geschoss)).join(', ') || '–'}</small></h1>
+      <button class="btn primary" type="button" id="fertig">Fertig</button></div>
+    <div class="layout"><div>
+      <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
+        <button class="btn klein" type="button" data-m="linie" aria-pressed="${S.modus === 'linie'}">Masslinie</button>
+        <button class="btn klein" type="button" data-m="pan" aria-pressed="${S.modus === 'pan'}">Verschieben</button>
+        <button class="btn klein" type="button" data-m="kalib" aria-pressed="${S.modus === 'kalib'}">Massstab einmessen</button>
+        <span class="trenner"></span>${zoomKnoepfe()}<span class="trenner"></span>
+        <button class="btn klein" type="button" id="grm" aria-label="Beschriftung kleiner">A−</button><button class="btn klein" type="button" id="grp" aria-label="Beschriftung grösser">A+</button>
+      </div>
+      <div class="plan"><svg id="svg" class="${S.modus === 'pan' ? 'pan' : ''}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} mit Masslinien"></svg></div>
+      <p class="hint">${S.modus === 'kalib' ? 'Eine Linie über ein bekanntes Mass ziehen (z. B. Bemassung 2.82 im Plan) und das Mass in mm eingeben.'
+        : 'Linie ziehen: drücken, ziehen, loslassen. Rastet waagrecht/senkrecht ein (Alt-Taste = frei). Linie antippen = auswählen, Endpunkte verschieben. Mausrad = Zoom, rechte Maustaste/Leertaste-Modus «Verschieben» = Plan schieben. Entf = Linie löschen.'}</p>
+    </div>
+    <div class="seite">
+      <h2 style="margin-top:0">Massstab</h2>
+      <p class="hint" style="margin-top:0">${f ? (v.kalib ? 'Eingemessen: 1 Bildpunkt = ' + v.kalib.toFixed(2) + ' mm' : 'Plan 1:' + v.massstab) : 'Noch kein Massstab – Planmasse werden nicht angezeigt.'}</p>
+      ${v.ptProPx ? `<div class="acts" style="margin-top:4px"><input class="field" id="ms" inputmode="numeric" value="${esc(v.massstab || '')}" placeholder="20" aria-label="Massstab 1 zu" style="flex:1"><button class="btn" type="button" id="msOk">1:… übernehmen</button></div>` : ''}
+      ${v.kalib ? '<div class="acts"><button class="btn klein" type="button" id="kalibWeg">Einmessung entfernen</button></div>' : ''}
+      ${l ? `<h2>Linie ${l.nr}</h2>
+        <label for="lText">Bezeichnung</label><input class="field" id="lText" value="${esc(l.text || '')}" placeholder="z. B. Nische Küche Breite">
+        <label for="lSoll">Planmass (mm)</label><input class="field" id="lSoll" inputmode="decimal" value="${esc(l.soll != null ? l.soll : '')}" placeholder="${esc(soll(v, Object.assign({}, l, {soll: null})) != null ? soll(v, Object.assign({}, l, {soll: null})) : 'leer')}">
+        <p class="hint">Leer = aus dem Plan gemessen.</p>
+        <div class="acts"><button class="btn" type="button" id="lWeg">Linie löschen</button><button class="btn" type="button" id="lAb">Auswahl aufheben</button></div>` : ''}
+      <h2>Masslinien</h2>
+      ${linienVon(v).length ? `<table class="masse"><tr><th>Nr.</th><th>Bezeichnung</th><th class="soll">Plan</th></tr>
+        ${linienVon(v).map(x => `<tr data-lz="${x.id}" class="${x.id === S.sel ? 'aktiv' : ''}" style="cursor:pointer"><td><span class="nr">${x.nr}</span></td><td>${esc(x.text || '')}</td><td class="soll">${soll(v, x) != null ? soll(v, x) : ''}</td></tr>`).join('')}</table>`
+        : '<p class="hint">Noch keine Linien.</p>'}
+    </div></div>`;
+  const svg = $('#svg');
+  let url = bildUrls[v.bild] || '', vorschau = null;
+  const malen = () => { svg.innerHTML = planInhalt(v, null, {modus: 'vorlage', sel: S.sel, url, vorschau}); };
+  setzeVb(svg, key); malen(); bildUrl(v.bild).then(u => { url = u; malen(); });
+  zoomVerdrahten(svg, key, v);
+  const fang = (a, p, e) => { if (e.altKey) return p; const dx = p.x - a.x, dy = p.y - a.y, w = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90;
+    if (w < 5 || w > 85) return Math.abs(dx) > Math.abs(dy) ? {x: p.x, y: a.y} : {x: a.x, y: p.y}; return p; };
+  let zug = null;   // {art:'neu'|'griff', a, p, l, e}
+  const linienSvg = (a, p) => `<line x1="${a.x}" y1="${a.y}" x2="${p.x}" y2="${p.y}" stroke="${S.modus === 'kalib' ? BLAU : ROT}" stroke-width="${Math.max(v.w, v.h) / 100 * .16}" stroke-dasharray="${Math.max(v.w, v.h) / 100 * .5}"/>`;
+  planSteuerung(svg, key, {
+    start(e, p){
+      if (S.modus === 'pan' || e.button !== 0) return false;
+      const g = e.target.closest && e.target.closest('.griff');
+      if (g) { zug = {art: 'griff', l: linienVon(v).find(x => x.id === g.dataset.l), e: g.dataset.e}; return true; }
+      const ml = e.target.closest && e.target.closest('.ml');
+      if (ml && S.modus === 'linie') { zug = {art: 'wahl', id: ml.dataset.l}; return true; }
+      zug = {art: 'neu', a: p, p}; return true;
+    },
+    bewege(e, p){
+      if (!zug) return;
+      if (zug.art === 'griff') { const l = zug.l, a = zug.e === '1' ? {x: l.x2, y: l.y2} : {x: l.x1, y: l.y1}, q = fang(a, p, e);
+        if (zug.e === '1') { l.x1 = q.x; l.y1 = q.y; } else { l.x2 = q.x; l.y2 = q.y; } malen(); }
+      else if (zug.art === 'neu') { zug.p = fang(zug.a, p, e); vorschau = linienSvg(zug.a, zug.p); malen(); }
+    },
+    ende(){
+      const z = zug; zug = null; vorschau = null;
+      if (!z) return;
+      if (z.art === 'wahl') { S.sel = z.id; return zeichneVorlage(); }
+      if (z.art === 'griff') { z.l.zeit = jetzt(); v.zeit = jetzt(); speichern(); return zeichneVorlage(); }
+      const ctm = svg.getScreenCTM(), lang = Math.hypot(z.p.x - z.a.x, z.p.y - z.a.y) * ctm.a;
+      if (lang < 12) { S.sel = null; return zeichneVorlage(); }
+      if (S.modus === 'kalib') {
+        const mm = zahl(prompt('Wie lang ist diese Strecke in Wirklichkeit? (mm)', ''));
+        if (mm) { v.kalib = mm / Math.hypot(z.p.x - z.a.x, z.p.y - z.a.y); v.zeit = jetzt(); S.modus = 'linie'; speichern(); }
+        return zeichneVorlage();
+      }
+      const l = {id: neueId(), x1: z.a.x, y1: z.a.y, x2: z.p.x, y2: z.p.y, text: '', soll: null, zeit: jetzt()};
+      v.linien = v.linien || []; v.linien.push(l); nummeriere(v); v.zeit = jetzt(); S.sel = l.id; speichern(); zeichneVorlage();
+      const t = $('#lText'); if (t) t.focus({preventScroll: true});
+    },
+    abbruch(){ zug = null; vorschau = null; malen(); }
+  });
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { S.modus = b.dataset.m; zeichneVorlage(); });
+  $('#grm').onclick = () => { v.gr = Math.max(.4, (v.gr || 1) / 1.2); v.zeit = jetzt(); speichern(); malen(); };
+  $('#grp').onclick = () => { v.gr = Math.min(3, (v.gr || 1) * 1.2); v.zeit = jetzt(); speichern(); malen(); };
+  $('#zurueck').onclick = $('#fertig').onclick = () => { S.ansicht = 'auftrag'; S.sel = null; zeichne(); };
+  if ($('#msOk')) $('#msOk').onclick = () => { v.massstab = zahl($('#ms').value); v.kalib = null; v.zeit = jetzt(); speichern(); zeichneVorlage(); };
+  if ($('#kalibWeg')) $('#kalibWeg').onclick = () => { v.kalib = null; v.zeit = jetzt(); speichern(); zeichneVorlage(); };
+  document.querySelectorAll('[data-lz]').forEach(r => r.onclick = () => { S.sel = r.dataset.lz; zeichneVorlage(); });
+  if (l) {
+    $('#lText').onchange = () => { l.text = $('#lText').value.trim(); l.zeit = v.zeit = jetzt(); speichern(); zeichneVorlage(); };
+    $('#lText').onkeydown = e => { if (e.key === 'Enter') $('#lText').blur(); };
+    $('#lSoll').onchange = () => { const s = zahl($('#lSoll').value); l.soll = s; l.zeit = v.zeit = jetzt(); speichern(); zeichneVorlage(); };
+    $('#lWeg').onclick = () => loescheLinie(v, l);
+    $('#lAb').onclick = () => { S.sel = null; zeichneVorlage(); };
+  }
+  document.onkeydown = e => {
+    if (S.ansicht !== 'vorlage' || /INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName)) return;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && l) { e.preventDefault(); loescheLinie(v, l); }
+    if (e.key === 'Escape') { S.sel = null; zeichneVorlage(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { const x = linienVon(v).slice(-1)[0]; if (x) loescheLinie(v, x); }
+  };
+}
+function loescheLinie(v, l){ l.weg = true; l.zeit = v.zeit = jetzt(); nummeriere(v); S.sel = null; speichern(); zeichneVorlage(); }
+
+// ---------- Blatt ausfüllen (Tablet/Baustelle) ----------
+function zeichneBlatt(){
+  const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v) { S.ansicht = 'auftrag'; return zeichne(); }
+  const key = 'v' + v.id; if (!S.vb[key]) einpassen(key, v);
+  const L = linienVon(v), p = fortschritt(b);
+  $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zum Auftrag">‹</button>
+      <h1>${esc(v.name)} · ${esc(b.geschoss)}<small>${esc(daten.auftrag.nr)} ${esc(daten.auftrag.titel || '')} · ${p.g} von ${p.n} gemessen</small></h1>
+      <button class="btn" type="button" id="druckL">Leer drucken</button><button class="btn" type="button" id="druckV">Drucken</button></div>
+    <div class="layout"><div>
+      <div class="werkzeuge" role="toolbar" aria-label="Werkzeuge">
+        <button class="btn klein" type="button" data-m="ansehen" aria-pressed="${S.modus !== 'stift'}">Ansehen</button>
+        <button class="btn klein" type="button" data-m="stift" aria-pressed="${S.modus === 'stift'}">Stift</button>
+        ${S.modus === 'stift' ? `<button class="btn klein" type="button" data-f="${ROT}" aria-pressed="${S.farbe === ROT}" style="color:${ROT}">● Rot</button><button class="btn klein" type="button" data-f="#1C5FD1" aria-pressed="${S.farbe === '#1C5FD1'}" style="color:#1C5FD1">● Blau</button><button class="btn klein" type="button" data-f="#111111" aria-pressed="${S.farbe === '#111111'}">● Schwarz</button>
+          <button class="btn klein" type="button" id="rueck">Rückgängig</button>` : ''}
+        <span class="trenner"></span>${zoomKnoepfe()}<span class="trenner"></span>
+        <button class="btn klein${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome/Android')}</button>
+      </div>
+      <div class="plan"><svg id="svg" class="${S.modus === 'stift' ? '' : 'pan'}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} ${esc(b.geschoss)}"></svg></div>
+      <p class="hint">${S.modus === 'stift' ? 'Mit Stift oder Finger direkt auf den Plan schreiben (z. B. Masse, Notizen). Mit zwei Fingern zoomen. Erkennt das Tablet einen Stift, schiebt der Finger den Plan.'
+        : 'Rote Nummer antippen → Mass unten eingeben (oder Bosch messen). Mit zwei Fingern zoomen und schieben.'}</p>
+    </div>
+    <div class="seite">
+      <h2 style="margin-top:0">Masse</h2>
+      ${L.length ? `<table class="masse"><tr><th>Nr.</th><th>Bezeichnung</th><th class="soll">Plan</th><th style="text-align:right">Ist mm</th><th class="diff">Diff.</th></tr>
+        ${L.map(l => { const w = b.werte[l.id], so = soll(v, l), d = w && w.v != null && so != null ? w.v - so : null;
+          return `<tr data-zl="${l.id}" class="${l.id === S.aktiv ? 'aktiv' : ''}"><td><span class="nr">${l.nr}</span></td><td>${esc(l.text || '')}</td><td class="soll">${so != null ? so : ''}</td>
+            <td><input id="ist_${l.id}" data-ist="${l.id}" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="${esc(w && w.v != null ? mmTxt(w.v) : '')}" aria-label="Ist-Mass Linie ${l.nr}"></td>
+            <td class="diff${d != null && Math.abs(d) > TOL ? ' gross' : ''}" id="d_${l.id}">${d != null ? (d > 0 ? '+' : '') + mmTxt(d) : ''}</td></tr>`; }).join('')}</table>`
+        : '<p class="hint">Dieser Plan hat noch keine Masslinien – am PC unter «Masslinien ziehen» anlegen.</p>'}
+      <label for="notiz">Notiz</label><textarea class="field" id="notiz" rows="3" style="min-height:72px">${esc(b.notiz || '')}</textarea>
+      <div class="acts"><button class="btn" type="button" id="blattWeg">Blatt löschen</button></div>
+      <p class="sync" id="sync">${esc(S.sync)}</p>
+    </div></div>`;
+  const svg = $('#svg'); let url = bildUrls[v.bild] || '', strich = null, stiftDa = S.stiftDa || false;
+  const malen = () => { svg.innerHTML = planInhalt(v, b, {modus: 'blatt', aktiv: S.aktiv, url, vorschau: strich ? `<polyline points="${strich.p.join(' ')}" fill="none" stroke="${strich.f}" stroke-width="${Math.max(v.w, v.h) / 100 * strich.d}" stroke-linecap="round" stroke-linejoin="round"/>` : ''}); };
+  setzeVb(svg, key); malen(); bildUrl(v.bild).then(u => { url = u; malen(); });
+  zoomVerdrahten(svg, key, v);
+  const fokus = id => { S.aktiv = id; document.querySelectorAll('tr[data-zl]').forEach(r => r.classList.toggle('aktiv', r.dataset.zl === id)); malen();
+    const i = $('#ist_' + id); if (i) { i.focus({preventScroll: true}); i.scrollIntoView({block: 'nearest'}); } };
+  planSteuerung(svg, key, {
+    stift: () => stiftDa,   // Finger schiebt, sobald ein Stift erkannt wurde (Handballen)
+    start(e, p){
+      if (e.pointerType === 'pen') stiftDa = S.stiftDa = true;
+      if (S.modus !== 'stift' || e.button !== 0) return false;
+      strich = {id: neueId(), f: S.farbe, d: .16, p: [Math.round(p.x), Math.round(p.y)], erstellt: jetzt(), zeit: jetzt()}; return true;
+    },
+    bewege(e, p){ if (!strich) return; const n = strich.p.length; if (Math.hypot(p.x - strich.p[n - 2], p.y - strich.p[n - 1]) < 2) return; strich.p.push(Math.round(p.x), Math.round(p.y)); malen(); },
+    ende(){ if (!strich) return; if (strich.p.length < 4) strich.p.push(strich.p[0] + 1, strich.p[1] + 1);
+      b.ink = b.ink || []; b.ink.push(strich); strich = null; b.zeit = jetzt(); speichern(); malen(); },
+    abbruch(){ strich = null; malen(); },
+    tipp(e){ const ml = e.target.closest && e.target.closest('.ml'); if (ml) fokus(ml.dataset.l); }
+  });
+  document.querySelectorAll('[data-m]').forEach(k => k.onclick = () => { S.modus = k.dataset.m; zeichneBlatt(); });
+  document.querySelectorAll('[data-f]').forEach(k => k.onclick = () => { S.farbe = k.dataset.f; zeichneBlatt(); });
+  if ($('#rueck')) $('#rueck').onclick = () => { const s = (b.ink || []).filter(x => !x.weg).slice(-1)[0]; if (!s) return; s.weg = true; s.zeit = b.zeit = jetzt(); speichern(); malen(); };
+  $('#zurueck').onclick = () => { S.ansicht = 'auftrag'; S.aktiv = null; zeichne(); };
+  $('#druckL').onclick = () => drucken([b], true); $('#druckV').onclick = () => drucken([b], false);
+  $('#glm').onclick = () => GLM.verbinden();
+  $('#notiz').onchange = () => { b.notiz = $('#notiz').value; b.zeit = jetzt(); speichern(); };
+  $('#blattWeg').onclick = () => { if (!confirm('Blatt «' + b.geschoss + '» löschen?')) return; b.weg = true; b.zeit = jetzt(); merkeIndex(); speichern(); S.ansicht = 'auftrag'; zeichne(); };
+  document.querySelectorAll('tr[data-zl]').forEach(r => r.onclick = ev => { if (ev.target.tagName !== 'INPUT') fokus(r.dataset.zl); });
+  document.querySelectorAll('[data-ist]').forEach(i => {
+    i.onfocus = () => { if (S.aktiv !== i.dataset.ist) { S.aktiv = i.dataset.ist; document.querySelectorAll('tr[data-zl]').forEach(r => r.classList.toggle('aktiv', r.dataset.zl === S.aktiv)); malen(); } };
+    i.onchange = () => setzeWert(b, v, i.dataset.ist, zahl(i.value), malen);
+    i.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); i.dispatchEvent(new Event('change'));
+      const k = L.findIndex(l => l.id === i.dataset.ist), n = L[k + 1]; if (n) fokus(n.id); else i.blur(); };
+  });
+}
+function setzeWert(b, v, lid, wert, malen){
+  b.werte[lid] = {v: wert, zeit: jetzt(), von: ls.get('kuerzel') || ''}; b.zeit = jetzt(); merkeIndex(); speichern();
+  const l = linienVon(v).find(x => x.id === lid), so = l && soll(v, l), d = wert != null && so != null ? wert - so : null, el = $('#d_' + lid);
+  if (el) { el.textContent = d != null ? (d > 0 ? '+' : '') + mmTxt(d) : ''; el.classList.toggle('gross', d != null && Math.abs(d) > TOL); }
+  const i = $('#ist_' + lid); if (i && document.activeElement !== i) i.value = wert != null ? mmTxt(wert) : '';
+  const p = fortschritt(b), h = document.querySelector('.top small'); if (h) h.textContent = `${daten.auftrag.nr} ${daten.auftrag.titel || ''} · ${p.g} von ${p.n} gemessen`;
+  if (malen) malen();
+}
+// Bosch-Messwert → aktive Linie, danach nächste leere
+GLM.beiStatus = () => { const k = $('#glm'); if (k) { k.textContent = GLM.text(); k.classList.toggle('primary', GLM.status === 'ok'); } };
+GLM.beiWert = w => {
+  if (S.ansicht !== 'blatt') return; const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v) return;
+  const L = linienVon(v), id = S.aktiv || (L.find(l => !(b.werte[l.id] && b.werte[l.id].v != null)) || {}).id; if (!id) return;
+  setzeWert(b, v, id, w, null); if (navigator.vibrate) navigator.vibrate(60);
+  const k = L.findIndex(l => l.id === id), n = L.slice(k + 1).find(l => !(b.werte[l.id] && b.werte[l.id].v != null));
+  S.aktiv = n ? n.id : null; const y = scrollY; zeichneBlatt(); scrollTo(0, y);
+};
+
+// ---------- Drucken (leer zum Ausfüllen von Hand oder mit Massen) ----------
+async function drucken(liste, leer){
+  const w = window.open('', '_blank'); if (!w) return alert('Bitte Pop-ups für diese Seite erlauben.');
+  w.document.write('<p style="font:14px system-ui">Blätter werden vorbereitet …</p>');
+  const urls = {};
+  for (const b of liste) { const v = vorlage(b.vorlage); if (v && !(v.bild in urls)) { await bildUrl(v.bild); const bl = bildBlobs[v.bild]; urls[v.bild] = bl ? 'data:image/jpeg;base64,' + await blobB64(bl) : ''; } }
+  const a = daten.auftrag, datum = new Date().toLocaleDateString('de-CH');
+  const seiten = liste.map(b => { const v = vorlage(b.vorlage); if (!v) return ''; const L = linienVon(v);
+    return `<section><header><b>${esc(v.name)}${b.geschoss ? ' · ' + esc(b.geschoss) : ''}</b><span>Auftrag ${esc(a.nr)} ${esc(a.titel || '')}</span>
+        <span>Datum: ${leer ? '________' : datum}</span><span>Gemessen von: ${leer ? '____________' : esc(Object.values(b.werte || {}).map(x => x.von).filter(Boolean)[0] || '')}</span></header>
+      <div class="inhalt"><svg viewBox="0 0 ${v.w} ${v.h}" preserveAspectRatio="xMidYMid meet">${planInhalt(v, leer ? null : b, {modus: 'druck', leer, url: urls[v.bild]})}</svg>
+      <table><tr><th>Nr.</th><th>Bezeichnung</th><th>Plan</th><th>Ist mm</th></tr>
+        ${L.map(l => { const x = b.werte && b.werte[l.id]; return `<tr><td class="n">${l.nr}</td><td>${esc(l.text || '')}</td><td class="z">${soll(v, l) != null ? soll(v, l) : ''}</td><td class="z ist">${!leer && x && x.v != null ? mmTxt(x.v) : ''}</td></tr>`; }).join('')}
+      </table></div>${!leer && b.notiz ? `<p class="notiz">Notiz: ${esc(b.notiz)}</p>` : ''}</section>`; }).join('');
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Planaufmass ${esc(a.nr)}</title>
+    <style>@page{size:A3 landscape;margin:8mm}body{margin:0;font:11pt Arial,sans-serif;color:#111}section{page-break-after:always;height:277mm;display:flex;flex-direction:column}
+    section:last-child{page-break-after:auto}header{display:flex;gap:18px;align-items:baseline;border-bottom:1.5pt solid #111;padding-bottom:4px;margin-bottom:6px}header b{font-size:15pt;flex:1}
+    .inhalt{flex:1;display:grid;grid-template-columns:1fr 70mm;gap:6mm;min-height:0}svg{width:100%;height:100%;border:.5pt solid #999}
+    table{border-collapse:collapse;align-self:start;width:100%}th,td{border:.5pt solid #555;padding:0 4px;height:9mm;text-align:left;font-size:10pt}th{height:6mm;background:#eee}
+    td.n{width:9mm;text-align:center;font-weight:700;color:#D0021B}td.z{text-align:right;width:16mm}td.ist{width:22mm;font-weight:700;font-size:12pt}.notiz{margin:4px 0 0}
+    .knopf{position:fixed;bottom:8px;right:8px;font:14px system-ui;background:#fff;border:1px solid #999;border-radius:6px;padding:6px 8px}@media print{.knopf{display:none}}</style>
+    <div class="knopf">Papier: <button onclick="document.querySelector('style').textContent=document.querySelector('style').textContent.replace(/A\\d landscape/,'A3 landscape').replace(/height:\\d+mm;display:flex/,'height:277mm;display:flex');print()">A3 drucken</button>
+      <button onclick="document.querySelector('style').textContent=document.querySelector('style').textContent.replace(/A\\d landscape/,'A4 landscape').replace(/height:\\d+mm;display:flex/,'height:190mm;display:flex');print()">A4 drucken</button></div>
+    ${seiten || '<p>Keine Blätter.</p>'}</html>`);
+  w.document.close();
+}
+function csv(){
+  const zeilen = [['Plan', 'Blatt', 'Nr', 'Bezeichnung', 'Plan mm', 'Ist mm', 'Differenz', 'Gemessen', 'Von']];
+  for (const v of aktiveVorlagen()) for (const b of blaetterVon(v.id)) for (const l of linienVon(v)) { const x = b.werte[l.id], so = soll(v, l);
+    zeilen.push([v.name, b.geschoss, l.nr, l.text || '', so != null ? so : '', x && x.v != null ? mmTxt(x.v) : '', x && x.v != null && so != null ? mmTxt(x.v - so) : '',
+      x && x.zeit ? new Date(x.zeit).toLocaleString('de-CH') : '', x && x.von || '']); }
+  const text = '﻿' + zeilen.map(z => z.map(f => /[;"\n]/.test(String(f)) ? '"' + String(f).replace(/"/g, '""') + '"' : f).join(';')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv'})); a.download = 'Planaufmass-' + daten.auftrag.nr + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ---------- Start ----------
+window.addEventListener('online', () => hochladen());
+if (Q.get('nr') && BETA) oeffneAuftrag(Q.get('nr'), Q.get('titel') || ''); else zeichne();
+if (online()) holeJson(ORDNER + '/index.json').then(f => { if (f.d) { index = mischeIndex(f.d, index); ls.set('planaufmass-index', JSON.stringify(index)); if (S.ansicht === 'liste') zeichne(); } }).catch(() => {});
+window.Planaufmass = {_intern: {mischeDaten, vorschlag, soll, mmProPx}};
+})();
+</script>
+</body>
+</html>
