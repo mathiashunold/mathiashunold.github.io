@@ -112,6 +112,19 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
 .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
 
 /* Liste */
+.leiste{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.leiste .search{flex:1 1 220px;margin:0}
+.job.zeile{cursor:pointer;grid-template-columns:auto 1fr auto}.job.zeile:hover{border-color:var(--accent)}
+.job.zeile .nr{font-size:19px;color:var(--ink);min-width:64px}.job.zeile .tt{font-size:18px}.job.zeile .meta{grid-column:2/-1}
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.chip{font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);white-space:nowrap;text-decoration:none}
+.chip.an{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}a.chip{color:var(--accent);border-color:var(--accent)}
+.kopf2{display:flex;align-items:center;gap:10px;margin:4px 0 14px}.kopf2 h2{margin:0;flex:1}
+.block{padding:16px 18px;margin-bottom:12px}.block h3{margin:0 0 8px;font-size:18px}.block .acts{display:flex;flex-wrap:wrap;gap:8px}
+.block .info{color:var(--muted);font-size:15px;margin:0 0 10px}
+.archivband{background:var(--run-bg);color:var(--run);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600}
+#neuCard{padding:16px 18px;margin-bottom:12px}#neuCard .grid{margin-bottom:10px}
+#upload h2{display:none}#upload .card{box-shadow:none;border:0;padding:0}
+@media (max-width:560px){.job.zeile{grid-template-columns:auto 1fr}.chips{grid-column:1/-1;justify-content:flex-start}}
 .search{margin-bottom:12px}
 .list{display:grid;gap:10px}
 .job{padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
@@ -165,9 +178,9 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
       </div>
       <button class="linkbtn" id="logout" type="button">Abmelden</button>
     </div>
-    <div class="acts" id="betaLeiste" hidden style="margin:0 0 16px"><a class="btn" href="tueren.html">Türaufmass (Beta) – Aufmass ohne Plan</a><a class="btn" href="planaufmass.html">Planaufmass (Beta) – Grundriss mit Masslinien</a></div>
 
-    <section id="upload" hidden aria-labelledby="upH">
+    <div id="ablage" hidden>
+    <section id="upload" aria-labelledby="upH">
       <h2 id="upH">Neuen Planstand hochladen</h2>
       <form class="card" id="keyCard" hidden autocomplete="off">
         <p class="kt">Dieses Gerät für das Hochladen freischalten</p>
@@ -196,6 +209,7 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
         <p class="hint">Upload-Schlüssel auf diesem Gerät gespeichert. <button class="linkbtn inl" id="keyDel" type="button">Entfernen</button></p>
       </div>
     </section>
+    </div>
 
     <div class="card tipp" id="tipp" hidden>
       <img src="icon-192.png" alt="">
@@ -209,11 +223,25 @@ h2{font-size:20px;margin:0 0 10px;font-weight:700}
       Etikett scannen
     </button>
 
-    <section aria-labelledby="listH">
-      <h2 id="listH">Aufträge</h2>
-      <input class="field search" id="q" type="search" placeholder="Suchen: Auftrag, Objekt, Kunde" aria-label="Aufträge suchen">
+    <section id="listenSeite" aria-labelledby="listH">
+      <div class="kopf2"><button class="btn" id="zurListe" type="button" hidden>‹ Aktive</button><h2 id="listH">Aufträge</h2></div>
+      <div class="leiste">
+        <input class="field search" id="q" type="search" placeholder="Suchen: Auftrag, Objekt, Kunde" aria-label="Aufträge suchen">
+        <button class="btn primary" id="neuBtn" type="button" hidden>+ Auftrag anlegen</button>
+        <button class="btn" id="archivBtn" type="button">Archiv</button>
+      </div>
+      <form class="card" id="neuCard" hidden autocomplete="off">
+        <div class="grid">
+          <div><label for="nNr">Auftrag</label><input class="field" id="nNr" inputmode="numeric" required></div>
+          <div><label for="nTitel">Objekt</label><input class="field" id="nTitel"></div>
+          <div><label for="nKunde">Kunde</label><input class="field" id="nKunde"></div>
+        </div>
+        <div class="acts" style="display:flex;gap:8px"><button class="btn primary" type="submit">Anlegen und öffnen</button><button class="btn" id="neuZu" type="button">Abbrechen</button></div>
+        <div class="msg err" id="neuMsg" role="alert"></div>
+      </form>
       <div class="list" id="list"></div>
     </section>
+    <section id="detail" hidden aria-live="polite"></section>
   </div>
 </div>
 
@@ -311,11 +339,10 @@ async function start(){
 async function zeigeApp(){
   $('#login').hidden = true; $('#app').hidden = false;
   $('#roleBadge').textContent = S.rolle === 'planung' ? (S.beta ? 'Beta' : 'Planung') : 'Werkstatt';
-  $('#betaLeiste').hidden = !S.beta;
-  $('#upload').hidden = S.rolle !== 'planung';
+  $('#neuBtn').hidden = S.rolle !== 'planung';
   zeigeUploadBereich();
   $('#list').innerHTML = '<div class="card empty">Lade Aufträge …</div>';
-  await ladeJobs();
+  ladeUeb(); await ladeJobs();
   if (S.rolle === 'planung' && S.token) { ladeRuns(); startRunTimer(); }
   $('#scanBtn').hidden = !window.Scanner;
   zeigeTipp();
@@ -356,65 +383,145 @@ async function ladeJobs(){
   } catch(e){ S.jobs = []; toast('Auftragsliste konnte nicht geladen werden.'); }
   zeichneListe(); ladeAufmass();
 }
-$('#q').addEventListener('input', zeichneListe);
 
-// ---------- Aufmass-Aufträge (Plan- und Türaufmass) ----------
-// Lokal aus localStorage (gleiche Herkunft wie planaufmass.html/tueren.html), mit Upload-Schlüssel zusätzlich aus dem Repo (Branch kontrolle).
+// ---------- Aufträge: Liste, Auftragsseite, Archiv ----------
+// Quellen je Auftrags-Nr.: 3D (auftraege.json auf Pages), Planaufmass/Türaufmass (Index lokal + Branch kontrolle),
+// Übersicht-Angaben (angelegt, Objekt/Kunde, archiviert) = uebersicht/auftraege.json im Branch kontrolle (nur Planung, sofort)
+// + 3d/archiv.json auf Pages (verschlüsselt, für die Werkstatt; schreibt der Workflow nach Push auf uebersicht/<zeit>).
 const aufmassSichtbar = () => S.rolle === 'planung';
+const UEB = 'uebersicht/auftraege.json';
+const jetztIso = () => new Date().toISOString();
 function aufmassLokal(k){ try { return (JSON.parse(localStorage.getItem(k) || 'null') || {}).auftraege || []; } catch(e){ return []; } }
 function aufmassMischen(...listen){ const m = {}; for (const l of listen) for (const x of l || []) if (x && x.nr && (!m[x.nr] || String(x.zeit || '') > String(m[x.nr].zeit || ''))) m[x.nr] = x; return m; }
-let aufmassFern = {plan: [], tuer: []};
+let aufmassFern = {plan: [], tuer: []}, archivPages = [];
+let ueb = (() => { try { return JSON.parse(localStorage.getItem('uebersicht-auftraege') || 'null') || {v: 1, auftraege: {}}; } catch(e){ return {v: 1, auftraege: {}}; } })();
+function uebMischen(a, b){ const m = Object.assign({}, (a && a.auftraege) || {}); for (const [k, x] of Object.entries((b && b.auftraege) || {})) if (!m[k] || String(x.zeit || '') > String(m[k].zeit || '')) m[k] = x; return {v: 1, auftraege: m}; }
+function uebLokal(){ try { localStorage.setItem('uebersicht-auftraege', JSON.stringify(ueb)); } catch(e){} }
+const b64utf8 = t => { const u = new TextEncoder().encode(t); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+const utf8b64 = c => new TextDecoder().decode(Uint8Array.from(atob(String(c).replace(/\s/g, '')), ch => ch.charCodeAt(0)));
+async function holeKontrolle(p){
+  const r = await fetch(API + '/repos/' + S.repo + '/contents/' + p + '?ref=kontrolle&_=' + Date.now(), {headers: {'Authorization': 'Bearer ' + S.token, 'Accept': 'application/vnd.github+json'}});
+  if (r.status === 404) return {sha: null, d: null}; if (!r.ok) throw new Error('GitHub ' + r.status);
+  const j = await r.json(); return {sha: j.sha, d: JSON.parse(utf8b64(j.content))};
+}
+async function ladeUeb(){
+  try { const enc = await fetchJSON('archiv.json'); archivPages = enc ? (JSON.parse(await decrypt(enc, S.ansichtPw)).archiv || []).map(String) : []; } catch(e){ archivPages = []; }
+  if (S.rolle === 'planung' && S.token && navigator.onLine) { try { const f = await holeKontrolle(UEB); if (f.d) { ueb = uebMischen(ueb, f.d); uebLokal(); } } catch(e){} }
+  zeichne();
+}
 async function ladeAufmass(){
   if (!aufmassSichtbar() || !S.token || !S.repo || !navigator.onLine) return;
-  const hole = async p => { const r = await fetch(API + '/repos/' + S.repo + '/contents/' + p + '?ref=kontrolle&_=' + Date.now(), {headers: {'Authorization': 'Bearer ' + S.token, 'Accept': 'application/vnd.github.raw'}});
-    if (!r.ok) return []; try { return (await r.json()).auftraege || []; } catch(e){ return []; } };
-  try { const [plan, tuer] = await Promise.all([hole('planaufmass/index.json'), hole('tueren/index.json')]); aufmassFern = {plan, tuer}; zeichneListe(); } catch(e){}
+  const hole = async p => { try { return (await holeKontrolle(p)).d?.auftraege || []; } catch(e){ return []; } };
+  const [plan, tuer] = await Promise.all([hole('planaufmass/index.json'), hole('tueren/index.json')]); aufmassFern = {plan, tuer}; zeichne();
 }
-function aufmassKnoepfe(nr, titel, kunde, pa, tu){
-  return `<a class="btn${pa ? ' primary' : ''}" href="planaufmass.html?nr=${esc(encodeURIComponent(nr))}&amp;titel=${esc(encodeURIComponent(titel || ''))}">Planaufmass${pa ? ` <small>${pa.fertig != null ? esc(pa.fertig) + '/' : ''}${esc(pa.blaetter ?? 0)} ${pa.fertig != null ? 'abgeschl.' : 'Blätter'}</small>` : ' (Beta)'}</a>
-    <a class="btn${tu ? ' primary' : ''}" href="tueren.html?nr=${esc(encodeURIComponent(nr))}&amp;titel=${esc(encodeURIComponent(titel || ''))}&amp;kunde=${esc(encodeURIComponent(kunde || ''))}">Türaufmass${tu ? ` <small>${esc(tu.anzahl ?? 0)} Türen</small>` : ' (Beta)'}</a>`;
+// Angaben eines Auftrags speichern (lokal sofort, dann ins Repo; bei Archiv-Änderung zusätzlich die Werkstatt-Liste neu schreiben lassen)
+async function speichereUeb(nr, aend, archivNeu){
+  ueb.auftraege[nr] = Object.assign({nr, erstellt: jetztIso()}, ueb.auftraege[nr], aend, {zeit: jetztIso()}); uebLokal(); zeichne();
+  if (!S.token) { toast('Nur auf diesem Gerät gespeichert – für alle Geräte den Upload-Schlüssel einfügen (beim Auftrag unter «Planstand hochladen»).'); return; }
+  for (let v = 0; v < 4; v++) {
+    try {
+      const f = await holeKontrolle(UEB); ueb = uebMischen(f.d, ueb); uebLokal();
+      await gh('PUT', '/repos/' + S.repo + '/contents/' + UEB, {message: 'Übersicht: Auftrag ' + nr, content: b64utf8(JSON.stringify(ueb, null, 1)), branch: 'kontrolle', ...(f.sha ? {sha: f.sha} : {})});
+      break;
+    } catch(e){ if (v === 3) { toast('Speichern im Repo fehlgeschlagen: ' + e.message); return; } await sleep(1500 * (v + 1)); }
+  }
+  if (archivNeu) {
+    try {   // leerer Commit (Baum von main) auf uebersicht/<zeit> → Workflow schreibt 3d/archiv.json für die Werkstatt
+      const repo = '/repos/' + S.repo, main = await gh('GET', repo + '/git/ref/heads/main'), mc = await gh('GET', repo + '/git/commits/' + main.object.sha);
+      const c = await gh('POST', repo + '/git/commits', {message: 'Übersicht: Archiv aktualisiert (' + nr + ')', tree: mc.tree.sha, parents: [main.object.sha]});
+      await gh('POST', repo + '/git/refs', {ref: 'refs/heads/uebersicht/' + new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15) + '-' + nr, sha: c.sha});
+      toast('Gespeichert – die Werkstatt sieht die Änderung in 1–2 Minuten.');
+    } catch(e){ toast('Archiv gespeichert, Werkstatt-Liste nicht aktualisiert: ' + e.message); }
+  }
 }
-function zeichneListe(){
-  const q = $('#q').value.trim().toLowerCase();
-  const plan = aufmassSichtbar() ? aufmassMischen(aufmassFern.plan, aufmassLokal('planaufmass-index')) : {}, tuer = aufmassSichtbar() ? aufmassMischen(aufmassFern.tuer, aufmassLokal('tueren-index')) : {};
-  const laufend = S.runs.filter(r => r.status !== 'completed' || r.conclusion !== 'success');
-  const jobs = S.jobs.slice().sort((a, b) => String(b.aktualisiert).localeCompare(String(a.aktualisiert)))
-    .filter(j => !q || [j.nr, j.titel, j.kunde].join(' ').toLowerCase().includes(q));
-  let h = '';
-  for (const r of laufend) {
-    if (q && !r.nr.toLowerCase().includes(q)) continue;
-    const fail = r.status === 'completed';
-    h += `<div class="card job"><div><div class="nr">${esc(r.nr)}</div><div class="tt">${esc(r.titel || 'Neuer Planstand')}</div></div>
-      <div class="meta">${fail ? '<span class="badge fail">Fehler beim Erzeugen</span>' : '<span class="badge run">Wird erzeugt …</span>'} · gestartet ${esc(fmtDate(r.start))}</div>
-      ${fail ? `<div class="acts"><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener">Fehlerdetails auf GitHub</a></div>` : ''}</div>`;
-  }
-  for (const j of jobs) {
-    const link = new URL(encodeURIComponent(j.nr) + '/', location.href).href;
-    h += `<div class="card job"><div><div class="nr">Auftrag ${esc(j.nr)}</div><div class="tt">${esc(j.titel)}</div></div>
-      <a class="btn primary open" href="${esc(encodeURIComponent(j.nr))}/">3D öffnen</a>
-      <div class="meta">${esc(j.kunde)}${j.kunde ? ' · ' : ''}Planstand ${esc(j.stand || '–')} · ${esc(j.teile ?? '?')} Teile</div>
-      <div class="acts">
-        <button class="btn" type="button" data-copy="${esc(link)}">Link kopieren</button>
-        ${S.rolle === 'planung' ? `<button class="btn" type="button" data-csv="${esc(j.nr)}">Positionsliste (CSV)</button>` : ''}
-        ${S.beta && S.token ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#kontrolle">Aufmass-Hilfe (Beta)</a>` : ''}
-        ${S.beta ? `<a class="btn" href="${esc(encodeURIComponent(j.nr))}/#ar">AR (Beta)</a>` : ''}
-        ${aufmassSichtbar() ? aufmassKnoepfe(j.nr, j.titel, j.kunde, plan[j.nr], tuer[j.nr]) : ''}
-      </div></div>`;
-  }
-  // Aufmass-Aufträge ohne 3D-Ansicht: eigene Karte in derselben Liste
-  const ohne3d = [...new Set([...Object.keys(plan), ...Object.keys(tuer)])].filter(nr => !S.jobs.some(j => String(j.nr) === String(nr)))
-    .map(nr => ({nr, pa: plan[nr], tu: tuer[nr], titel: (plan[nr] && plan[nr].titel) || (tuer[nr] && tuer[nr].titel) || '', kunde: (tuer[nr] && tuer[nr].kunde) || '',
-      zeit: [plan[nr], tuer[nr]].filter(Boolean).map(x => String(x.zeit || '')).sort().pop() || ''}))
-    .filter(a => !q || [a.nr, a.titel, a.kunde].join(' ').toLowerCase().includes(q)).sort((a, b) => b.zeit.localeCompare(a.zeit));
-  for (const a of ohne3d) {
-    h += `<div class="card job"><div><div class="nr">Auftrag ${esc(a.nr)}</div><div class="tt">${esc(a.titel || 'Aufmass')}</div></div>
-      <div class="meta">${esc(a.kunde)}${a.kunde ? ' · ' : ''}Nur Aufmass, noch keine 3D-Ansicht · zuletzt ${esc(fmtDate(a.zeit))}</div>
-      <div class="acts">${aufmassKnoepfe(a.nr, a.titel, a.kunde, a.pa, a.tu)}</div></div>`;
-  }
-  if (!h) h = `<div class="card empty">${q ? 'Kein Auftrag gefunden.' : (S.rolle === 'planung' ? 'Noch keine Aufträge. Lade oben den ersten Planstand hoch.' : 'Noch keine Aufträge vorhanden.')}</div>`;
-  $('#list').innerHTML = h;
+const nrSort = (a, b) => String(b.nr).localeCompare(String(a.nr), 'de', {numeric: true});
+function alleAuftraege(){
+  const plan = aufmassSichtbar() ? aufmassMischen(aufmassFern.plan, aufmassLokal('planaufmass-index')) : {};
+  const tuer = aufmassSichtbar() ? aufmassMischen(aufmassFern.tuer, aufmassLokal('tueren-index')) : {};
+  const meta = S.rolle === 'planung' ? ueb.auftraege : {};
+  const nrs = new Set([...S.jobs.map(j => String(j.nr)), ...Object.keys(plan), ...Object.keys(tuer), ...Object.keys(meta), ...(S.rolle === 'planung' ? S.runs.map(r => String(r.nr)) : [])]);
+  return [...nrs].map(nr => { const job = S.jobs.find(j => String(j.nr) === nr), m = meta[nr], pa = plan[nr], tu = tuer[nr], run = S.rolle === 'planung' ? S.runs.find(r => String(r.nr) === nr && (r.status !== 'completed' || r.conclusion !== 'success')) : null;
+    return {nr, job, m, pa, tu, run, titel: (m && m.titel) || (job && job.titel) || (pa && pa.titel) || (tu && tu.titel) || (run && run.titel) || '', kunde: (m && m.kunde) || (job && job.kunde) || (tu && tu.kunde) || '',
+      archiv: m && m.archiv != null ? !!m.archiv : archivPages.includes(nr)}; })
+    .filter(a => S.rolle === 'planung' || a.job).sort(nrSort);
 }
-$('#list').addEventListener('click', async ev => {
+function chips(a){
+  const c = [];
+  if (a.run) c.push(a.run.status === 'completed' ? '<span class="badge fail">Fehler beim Erzeugen</span>' : '<span class="badge run">3D wird erzeugt …</span>');
+  if (a.job) c.push(S.rolle === 'planung' ? '<span class="chip an">3D</span>' : `<a class="chip" href="${esc(encodeURIComponent(a.nr))}/">3D öffnen</a>`);
+  if (a.pa) c.push(`<span class="chip an">Plan ${a.pa.fertig != null ? esc(a.pa.fertig) + '/' : ''}${esc(a.pa.blaetter ?? 0)}</span>`);
+  if (a.tu) c.push(`<span class="chip an">Türen ${esc(a.tu.anzahl ?? 0)}</span>`);
+  return c.join('');
+}
+function zeichne(){
+  const h = location.hash, mA = h.match(/^#auftrag=(.+)$/), archiv = h === '#archiv';
+  const nr = mA ? decodeURIComponent(mA[1]) : null;
+  $('#ablage').appendChild($('#upload'));   // Upload-Bereich parken, bevor die Auftragsseite neu gezeichnet wird
+  $('#listenSeite').hidden = !!nr; $('#detail').hidden = !nr;
+  if (nr) return zeichneAuftrag(nr);
+  zeichneListe(archiv);
+}
+function zeichneListe(archiv){
+  if (archiv === undefined) return zeichne();
+  const q = $('#q').value.trim().toLowerCase(), alle = alleAuftraege(), nArchiv = alle.filter(a => a.archiv).length;
+  $('#listH').textContent = archiv ? 'Archiv' : 'Aufträge'; $('#zurListe').hidden = !archiv;
+  $('#archivBtn').hidden = archiv; $('#archivBtn').textContent = 'Archiv' + (nArchiv ? ' (' + nArchiv + ')' : '');
+  $('#neuBtn').hidden = archiv || S.rolle !== 'planung'; if (archiv) $('#neuCard').hidden = true;
+  const liste = alle.filter(a => !!a.archiv === !!archiv).filter(a => !q || [a.nr, a.titel, a.kunde].join(' ').toLowerCase().includes(q));
+  $('#list').innerHTML = liste.map(a => `<div class="card job zeile" data-auftrag="${esc(a.nr)}" role="link" tabindex="0" aria-label="Auftrag ${esc(a.nr)} öffnen">
+      <div class="nr">${esc(a.nr)}</div><div class="tt">${esc(a.titel || '–')}</div><div class="chips">${chips(a)}</div>
+      ${a.kunde ? `<div class="meta">${esc(a.kunde)}</div>` : ''}</div>`).join('')
+    || `<div class="card empty">${q ? 'Kein Auftrag gefunden.' : archiv ? 'Keine archivierten Aufträge.' : (S.rolle === 'planung' ? 'Noch keine Aufträge. Oben «+ Auftrag anlegen».' : 'Noch keine Aufträge vorhanden.')}</div>`;
+}
+function zeichneAuftrag(nr){
+  const a = alleAuftraege().find(x => x.nr === nr) || {nr, titel: '', kunde: ''}, j = a.job, pl = S.rolle === 'planung', enr = esc(encodeURIComponent(nr));
+  const link = new URL(encodeURIComponent(nr) + '/', location.href).href;
+  $('#detail').innerHTML = `<div class="kopf2"><button class="btn" id="zurueck" type="button">‹ ${a.archiv ? 'Archiv' : 'Aufträge'}</button><h2>Auftrag ${esc(nr)}${a.titel ? ' · ' + esc(a.titel) : ''}</h2></div>
+    ${a.kunde ? `<p class="info" style="margin:-6px 0 12px;color:var(--muted)">${esc(a.kunde)}</p>` : ''}
+    ${a.archiv ? '<div class="archivband">Archiviert – erscheint nicht in der Liste der aktiven Aufträge.</div>' : ''}
+    <div class="card block"><h3>3D-Ansicht</h3>
+      ${j ? `<p class="info">Planstand ${esc(j.stand || '–')} · ${esc(j.teile ?? '?')} Teile</p>
+        <div class="acts"><a class="btn primary" href="${enr}/">3D öffnen</a><button class="btn" type="button" data-copy="${esc(link)}">Link kopieren</button>
+        ${pl ? `<button class="btn" type="button" data-csv="${esc(nr)}">Positionsliste (CSV)</button>` : ''}
+        ${S.beta && S.token ? `<a class="btn" href="${enr}/#kontrolle">Aufmass-Hilfe (Beta)</a>` : ''}${S.beta ? `<a class="btn" href="${enr}/#ar">AR (Beta)</a>` : ''}</div>`
+      : `<p class="info">Noch keine 3D-Ansicht.${pl ? ' Unten DWG und STK hochladen.' : ''}</p>`}
+      ${a.run ? `<p class="info" style="margin-top:10px">${a.run.status === 'completed' ? `<span class="badge fail">Fehler beim Erzeugen</span> <a href="${esc(a.run.url)}" target="_blank" rel="noopener">Details auf GitHub</a>` : '<span class="badge run">Wird erzeugt …</span> gestartet ' + esc(fmtDate(a.run.start))}</p>` : ''}</div>
+    ${pl ? `<div class="card block"><h3>${j ? 'Neuen Planstand hochladen' : 'Planstand hochladen (DWG + STK)'}</h3><div id="upPlatz"></div></div>
+    <div class="card block"><h3>Aufmass</h3><div class="acts">
+      <a class="btn${a.pa ? ' primary' : ''}" href="planaufmass.html?nr=${enr}&amp;titel=${esc(encodeURIComponent(a.titel))}">Planaufmass${a.pa ? ` · ${a.pa.fertig != null ? esc(a.pa.fertig) + ' von ' : ''}${esc(a.pa.blaetter ?? 0)} Blättern${a.pa.fertig != null ? ' abgeschlossen' : ''}` : ''}</a>
+      <a class="btn${a.tu ? ' primary' : ''}" href="tueren.html?nr=${enr}&amp;titel=${esc(encodeURIComponent(a.titel))}&amp;kunde=${esc(encodeURIComponent(a.kunde))}">Türaufmass${a.tu ? ` · ${esc(a.tu.anzahl ?? 0)} Türen` : ''}</a></div></div>
+    <div class="card block"><h3>Angaben</h3>
+      <div class="grid" style="margin-bottom:10px"><div><label for="dTitel">Objekt</label><input class="field" id="dTitel" value="${esc(a.titel)}"></div>
+        <div><label for="dKunde">Kunde</label><input class="field" id="dKunde" value="${esc(a.kunde)}"></div></div>
+      <div class="acts"><button class="btn" type="button" id="dSpeichern">Angaben speichern</button>
+        <button class="btn" type="button" id="dArchiv">${a.archiv ? 'Wieder aktiv machen' : 'Archivieren'}</button></div></div>` : ''}`;
+  $('#zurueck').onclick = () => { location.hash = a.archiv ? '#archiv' : ''; };
+  if (!pl) return;
+  $('#upPlatz').appendChild($('#upload'));
+  if (S.upNr !== nr) { S.upNr = nr; $('#fNr').value = nr; $('#fTitel').value = a.titel || ''; $('#fKunde').value = a.kunde || ''; $('#upMsg').textContent = ''; if (!laeuft) $('#steps').hidden = true; pruefeBereit(); }
+  $('#fNr').readOnly = true;
+  $('#dSpeichern').onclick = () => speichereUeb(nr, {titel: $('#dTitel').value.trim(), kunde: $('#dKunde').value.trim()});
+  $('#dArchiv').onclick = () => { const neu = !a.archiv; if (neu && !confirm('Auftrag ' + nr + ' archivieren?')) return;
+    speichereUeb(nr, {archiv: neu, titel: a.titel, kunde: a.kunde}, true); location.hash = neu ? '' : '#auftrag=' + encodeURIComponent(nr); };
+}
+addEventListener('hashchange', () => { if (!$('#app').hidden) { zeichne(); scrollTo(0, 0); } });
+$('#q').addEventListener('input', () => zeichne());
+$('#archivBtn').addEventListener('click', () => { location.hash = '#archiv'; });
+$('#zurListe').addEventListener('click', () => { location.hash = ''; });
+$('#list').addEventListener('click', ev => { if (ev.target.closest('a,button')) return; const k = ev.target.closest('[data-auftrag]'); if (k) location.hash = '#auftrag=' + encodeURIComponent(k.dataset.auftrag); });
+$('#list').addEventListener('keydown', ev => { const k = ev.target.closest('[data-auftrag]'); if (k && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); location.hash = '#auftrag=' + encodeURIComponent(k.dataset.auftrag); } });
+$('#neuBtn').addEventListener('click', () => { $('#neuCard').hidden = false; $('#neuMsg').textContent = ''; $('#nNr').focus(); });
+$('#neuZu').addEventListener('click', () => { $('#neuCard').hidden = true; });
+$('#neuCard').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const nr = $('#nNr').value.trim().replace(/[^0-9A-Za-z_-]/g, '-').replace(/^-+|-+$/g, '');
+  if (!nr) { $('#neuMsg').textContent = 'Bitte eine gültige Auftragsnummer eingeben.'; return; }
+  const da = alleAuftraege().find(a => a.nr === nr);
+  if (!da || !ueb.auftraege[nr]) speichereUeb(nr, {titel: $('#nTitel').value.trim() || (da && da.titel) || '', kunde: $('#nKunde').value.trim() || (da && da.kunde) || '', archiv: false}, !!(da && da.archiv));
+  else if (da.archiv) speichereUeb(nr, {archiv: false}, true);
+  $('#neuCard').reset(); $('#neuCard').hidden = true; location.hash = '#auftrag=' + encodeURIComponent(nr);
+});
+$('#app').addEventListener('click', async ev => {
   const c = ev.target.closest('[data-copy]'), v = ev.target.closest('[data-csv]');
   if (c) { try { await navigator.clipboard.writeText(c.dataset.copy); toast('Link kopiert.'); } catch(e){ prompt('Link:', c.dataset.copy); } }
   if (v) {
@@ -458,7 +565,7 @@ $('#keyCard').addEventListener('submit', async ev => {
     if (!r.ok) throw new Error('Der Schlüssel hat keinen Zugriff auf ' + S.repo + '.');
     const info = await r.json();
     if (info.permissions && !info.permissions.push) throw new Error('Der Schlüssel darf in ' + S.repo + ' nicht schreiben (Contents: Read and write).');
-    store(K_KEY, k); S.token = k; $('#keyIn').value = ''; zeigeUploadBereich(); ladeRuns(); startRunTimer(); toast('Gerät freigeschaltet.');
+    store(K_KEY, k); S.token = k; $('#keyIn').value = ''; zeigeUploadBereich(); ladeRuns(); startRunTimer(); ladeUeb(); ladeAufmass(); toast('Gerät freigeschaltet.');
   } catch(e){ $('#keyMsg').textContent = e.message; }
   finally { b.disabled = false; b.textContent = 'Freischalten'; }
 });
