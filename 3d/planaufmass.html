@@ -272,9 +272,16 @@ const kastenFaktor = () => (daten && daten.auftrag && daten.auftrag.gr) || 1;
 function fGr(v){ return 9 * kastenFaktor() / Math.min(A3B / v.w, A3H / v.h); }
 const strichStil = () => !!(daten && daten.auftrag && daten.auftrag.stil === 'strich');   // Feld für die Zahl: Kästchen (Standard) oder Schreibstrich
 function kastenAendern(f){ daten.auftrag.gr = Math.round(Math.min(2.5, Math.max(.5, kastenFaktor() * f)) * 100) / 100; daten.auftrag.zeit = jetzt(); speichern(); }
+// Stiftdicke (Wunsch Mathias 26.11.): Notiz-Stift als Anteil von F, Schreibfeld als Anteil der Feldhöhe; gemerkt im Gerät
+const DICKEN = {fein: {n: .06, h: .035, t: 'Fein'}, mittel: {n: .12, h: .055, t: 'Mittel'}, dick: {n: .22, h: .09, t: 'Dick'}};
+const dicke = () => DICKEN[S.dicke || ls.get('planaufmass-dicke') || 'mittel'] || DICKEN.mittel;
+const dickeKnoepfe = () => Object.entries(DICKEN).map(([k, d]) => `<button class="btn klein" type="button" data-dicke="${k}" aria-pressed="${dicke() === d}" aria-label="Stift ${d.t}">
+  <svg width="26" height="14" aria-hidden="true"><line x1="3" y1="7" x2="23" y2="7" stroke="currentColor" stroke-width="${k === 'fein' ? 1.5 : k === 'mittel' ? 3.5 : 7}" stroke-linecap="round"/></svg>${d.t}</button>`).join('');
+function dickeVerdrahten(nachher, wurzel){ (wurzel || document).querySelectorAll('[data-dicke]').forEach(k => k.onclick = () => { S.dicke = k.dataset.dicke; ls.set('planaufmass-dicke', S.dicke);
+  document.querySelectorAll('[data-dicke]').forEach(x => x.setAttribute('aria-pressed', x.dataset.dicke === S.dicke)); if (nachher) nachher(); }); }
 // Handschrift im Feld: Striche in 0..1 (bezogen auf das Feld), gezeichnet in Planpunkten
-function handSvg(st, x0, y0, w, h){ return st.map(p => { let q = ''; for (let i = 0; i < p.length; i += 2) q += (x0 + p[i] * w).toFixed(1) + ',' + (y0 + p[i + 1] * h).toFixed(1) + ' ';
-  return `<polyline points="${q}" fill="none" stroke="#111" stroke-width="${(h * .055).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`; }).join(''); }
+function handSvg(st, x0, y0, w, h, dd){ return st.map(p => { let q = ''; for (let i = 0; i < p.length; i += 2) q += (x0 + p[i] * w).toFixed(1) + ',' + (y0 + p[i + 1] * h).toFixed(1) + ' ';
+  return `<polyline points="${q}" fill="none" stroke="#111" stroke-width="${(h * (dd || .055)).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>`; }).join(''); }
 function geo(v, l, txt){
   const F = fGr(v), sw = Math.max(1.5, F * .035);   // dünne Masslinie (Wunsch Mathias 26.11.)
   if (l.art === 'h') {   // Höhenangabe im Grundriss (Wunsch Mathias 26.11.): Kreuz am Messpunkt, «H:» und Kästchen daneben
@@ -309,7 +316,7 @@ function planInhalt(v, b, opt){
       <line x1="${G.a1x}" y1="${G.a1y}" x2="${G.a2x}" y2="${G.a2y}" stroke="transparent" stroke-width="${F * 1.4}"/>
       ${G.segs.map(q => `<line x1="${q[0]}" y1="${q[1]}" x2="${q[2]}" y2="${q[3]}" stroke="${farbe}" stroke-width="${q[5] && sel ? q[4] * 2 : q[4]}"/>`).join('')}
       <g transform="rotate(${wi.toFixed(2)} ${mx} ${my})">${strichStil() ? `<rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" fill="#fff" fill-opacity=".75"/><line x1="${bx}" y1="${my + G.bh / 2}" x2="${bx + bw}" y2="${my + G.bh / 2}" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw * 1.4}"/>` : `<rect x="${bx}" y="${my - G.bh / 2}" width="${bw}" height="${G.bh}" rx="${F * .2}" fill="#fff" fill-opacity=".93" stroke="${akt ? BLAU : farbe}" stroke-width="${akt ? sw * 2.5 : sw}"/>`}
-      <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${G.fs}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>${!txt && b && opt.modus !== 'vorlage' && !opt.leer && handVon(b, l.id) ? handSvg(handVon(b, l.id), bx, my - G.bh / 2, bw, G.bh) : ''}</g>
+      <text x="${mx}" y="${my + F * .38}" text-anchor="middle" font-size="${G.fs}" font-weight="700" fill="${opt.modus === 'vorlage' ? '#666' : '#111'}" font-family="Arial,sans-serif">${esc(txt)}</text>${!txt && b && opt.modus !== 'vorlage' && !opt.leer && handVon(b, l.id) ? handSvg(handVon(b, l.id), bx, my - G.bh / 2, bw, G.bh, b.hand[l.id].d) : ''}</g>
       ${G.vor ? `<circle cx="${l.x1}" cy="${l.y1}" r="${F * .8}" fill="transparent"/><text x="${G.vor.x}" y="${G.vor.y + F * .38}" font-size="${G.fs}" font-weight="700" fill="${farbe}" font-family="Arial,sans-serif">${G.vor.t}</text>` : ''}
     </g>`;
     if (opt.modus === 'vorlage' && sel) s += (l.art === 'h' ? [[l.x1, l.y1, 1]] : [[l.x1, l.y1, 1], [l.x2, l.y2, 2]]).map(([x, y, e]) =>
@@ -733,7 +740,7 @@ function zeichneBlatt(){
         <button class="btn klein" type="button" data-m="foto" aria-pressed="${S.modus === 'foto'}">Foto</button>
         <input type="file" id="kamera" accept="image/*" capture="environment" hidden>
         ${S.modus === 'stift' ? `<button class="btn klein" type="button" data-f="${ROT}" aria-pressed="${S.farbe === ROT}" style="color:${ROT}">● Rot</button><button class="btn klein" type="button" data-f="#1C5FD1" aria-pressed="${S.farbe === '#1C5FD1'}" style="color:#1C5FD1">● Blau</button><button class="btn klein" type="button" data-f="#111111" aria-pressed="${S.farbe === '#111111'}">● Schwarz</button>
-          <button class="btn klein" type="button" id="rueck">Rückgängig</button>` : ''}
+          <span class="trenner"></span>${dickeKnoepfe()}<button class="btn klein" type="button" id="rueck">Rückgängig</button>` : ''}
         <span class="trenner"></span>${zoomKnoepfe()}<span class="trenner"></span>
         <button class="btn klein${GLM.status === 'ok' ? ' primary' : ''}" type="button" id="glm" ${GLM.moeglich() ? '' : 'disabled'}>${esc(GLM.moeglich() ? GLM.text() : 'Bosch: nur Chrome/Android')}</button>
         <button class="btn klein" type="button" id="listeKn" aria-pressed="${listeZeigen()}">Liste</button>
@@ -771,7 +778,7 @@ function zeichneBlatt(){
       const feld = e.target.closest && e.target.closest('.ml');   // Stift direkt auf ein Mass → Schreibfeld öffnen
       if (e.pointerType === 'pen' && feld && S.modus !== 'foto') { eingabe(b, v, feld.dataset.l, true, malen); return true; }
       if (S.modus !== 'stift' || e.button !== 0) return false;
-      strich = {id: neueId(), f: S.farbe, d: .16, p: [Math.round(p.x), Math.round(p.y)], erstellt: jetzt(), zeit: jetzt()}; return true;
+      strich = {id: neueId(), f: S.farbe, d: dicke().n, p: [Math.round(p.x), Math.round(p.y)], erstellt: jetzt(), zeit: jetzt()}; return true;
     },
     bewege(e, p){ if (!strich) return; const n = strich.p.length; if (Math.hypot(p.x - strich.p[n - 2], p.y - strich.p[n - 1]) < 2) return; strich.p.push(Math.round(p.x), Math.round(p.y)); malen(); },
     ende(){ if (!strich) return; if (strich.p.length < 4) strich.p.push(strich.p[0] + 1, strich.p[1] + 1);
@@ -784,6 +791,7 @@ function zeichneBlatt(){
   });
   document.querySelectorAll('[data-m]').forEach(k => k.onclick = () => { S.modus = k.dataset.m; zeichneBlatt(); });
   document.querySelectorAll('[data-f]').forEach(k => k.onclick = () => { S.farbe = k.dataset.f; zeichneBlatt(); });
+  dickeVerdrahten(null, $('.werkzeuge'));
   if ($('#rueck')) $('#rueck').onclick = () => { const s = (b.ink || []).filter(x => !x.weg).slice(-1)[0]; if (!s) return; s.weg = true; s.zeit = b.zeit = jetzt(); speichern(); malen(); };
   $('#zurueck').onclick = () => { S.ansicht = 'auftrag'; S.aktiv = null; eingabeZu(); zeichne(); };
   $('#listeKn').onclick = () => { S.liste = !listeZeigen(); ls.set('planaufmass-liste', S.liste ? '1' : '0'); zeichneBlatt(); };
@@ -829,17 +837,19 @@ function eingabe(b, v, lid, stift, malen){
     <div class="zeile"><input id="eWert" inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="mm eintippen" value="${esc(w && w.v != null ? mmTxt(w.v) : '')}" aria-label="Mass in mm">
       ${GLM.status === 'ok' ? '<span class="hint" style="align-self:center">Bosch bereit</span>' : ''}</div>
     <canvas id="ePad" aria-label="Schreibfeld für den Stift"></canvas>
+    <div class="acts" style="align-items:center"><span class="hint" style="margin:0">Stift:</span>${dickeKnoepfe()}</div>
     <div class="acts"><button class="btn" type="button" data-e="leer">Schrift löschen</button><button class="btn" type="button" data-e="vor" ${i ? '' : 'disabled'}>‹ Zurück</button>
       <button class="btn primary" type="button" data-e="weiter">${i < L.length - 1 ? 'Weiter ›' : 'Fertig'}</button></div>`;
   document.body.appendChild(d);
   const c = $('#ePad'), cw = Math.min(640, d.clientWidth - 28), ch = Math.round(cw / seite), dpr = devicePixelRatio || 1;
   c.style.height = ch + 'px'; c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr);
-  const ctx = c.getContext('2d'); let striche = (handVon(b, lid) || []).map(x => x.slice()), akt = null;
+  const ctx = c.getContext('2d'); let striche = (handVon(b, lid) || []).map(x => x.slice()), akt = null, hd = (b.hand && b.hand[lid] && b.hand[lid].d) || dicke().h;
   const zeichnePad = () => { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, cw, ch); ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(8, ch * .8); ctx.lineTo(cw - 8, ch * .8); ctx.stroke();
-    ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(2.5, ch * .055); ctx.lineCap = ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#111'; ctx.lineWidth = Math.max(1.5, ch * hd); ctx.lineCap = ctx.lineJoin = 'round';
     for (const st of striche.concat(akt ? [akt] : [])) { ctx.beginPath(); for (let q = 0; q < st.length; q += 2) (q ? ctx.lineTo : ctx.moveTo).call(ctx, st[q] * cw, st[q + 1] * ch); ctx.stroke(); } };
   zeichnePad();
-  const speichereHand = () => { b.hand = b.hand || {}; b.hand[lid] = {s: striche, zeit: jetzt(), von: ls.get('kuerzel') || ''}; b.zeit = jetzt(); merkeIndex(); speichern(); if (malen) malen(); kopfNeu(b); };
+  dickeVerdrahten(() => { hd = dicke().h; zeichnePad(); if (striche.length) speichereHand(); }, d);
+  const speichereHand = () => { b.hand = b.hand || {}; b.hand[lid] = {s: striche, d: hd, zeit: jetzt(), von: ls.get('kuerzel') || ''}; b.zeit = jetzt(); merkeIndex(); speichern(); if (malen) malen(); kopfNeu(b); };
   const pos = e => { const r = c.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000) / 1000, Math.round((e.clientY - r.top) / r.height * 1000) / 1000]; };
   c.onpointerdown = e => { c.setPointerCapture(e.pointerId); akt = pos(e); zeichnePad(); };
   c.onpointermove = e => { if (!akt) return; akt.push(...pos(e)); zeichnePad(); };
@@ -949,7 +959,7 @@ async function pdfSpeichern(liste, leer){
       if (hs) { const ex = cx + (-hw) * c - (hh) * s2, ey = cy + (-hw) * s2 + (hh) * c;   // linke obere Ecke des Felds
         for (const st of hs) { if (st.length < 4) continue; let d = 'M ' + (st[0] * G.bw).toFixed(1) + ' ' + (st[1] * G.bh).toFixed(1);
           for (let q = 2; q < st.length; q += 2) d += ' L ' + (st[q] * G.bw).toFixed(1) + ' ' + (st[q + 1] * G.bh).toFixed(1);
-          page.drawSvgPath(d, {x: ex, y: ey, scale: k, rotate: degrees(-G.wi), borderColor: rgb(.07, .07, .07), borderWidth: Math.max(.4, G.bh * .055 * k), borderLineCap: LineCapStyle.Round}); } }
+          page.drawSvgPath(d, {x: ex, y: ey, scale: k, rotate: degrees(-G.wi), borderColor: rgb(.07, .07, .07), borderWidth: Math.max(.4, G.bh * (b.hand[l.id].d || .055) * k), borderLineCap: LineCapStyle.Round}); } }
       if (G.vor) page.drawText(G.vor.t, {x: X(G.vor.x), y: Y(G.vor.y) - G.fs * k * .36, size: G.fs * k, font: fett, color: ROTp});
     }
     // Stift-Einträge
