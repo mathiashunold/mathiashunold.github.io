@@ -761,6 +761,7 @@ function loescheLinie(v, l){ l.weg = true; l.zeit = v.zeit = jetzt(); nummeriere
 function zeichneBlatt(){
   const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v) { S.ansicht = 'auftrag'; return zeichne(); }
   const key = 'v' + v.id; if (!S.vb[key]) einpassen(key, v);
+  const zu = !!b.fertig; if (zu) { S.modus = 'ansehen'; S.bsel = null; S.oeffne = null; }   // abgeschlossen = gesperrt (nur ansehen)
   const L = linienVon(v, b), p = fortschritt(b);
   $('#app').innerHTML = `<div class="top"><button class="btn icon" type="button" id="zurueck" aria-label="Zurück zum Auftrag">‹</button>
       <h1>${esc(v.name)} · ${esc(b.geschoss)}<small>${esc(daten.auftrag.nr)} ${esc(daten.auftrag.titel || '')} · ${p.g} von ${p.n} gemessen</small></h1>
@@ -781,7 +782,7 @@ function zeichneBlatt(){
         <button class="btn klein" type="button" id="listeKn" aria-pressed="${listeZeigen()}">Liste</button>
       </div>
       <div class="plan"><svg id="svg" class="${S.modus === 'stift' ? '' : 'pan'}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Plan ${esc(v.name)} ${esc(b.geschoss)}"></svg></div>
-      <p class="hint">${S.modus === 'stift' ? 'Mit Stift oder Finger direkt auf den Plan schreiben (z. B. Masse, Notizen). Mit zwei Fingern zoomen. Erkennt das Tablet einen Stift, schiebt der Finger den Plan.'
+      <p class="hint">${zu ? '🔒 Abgeschlossen – nur ansehen. Mass antippen zeigt Wert und Rechnung. Zum Ändern oben «✓ Abgeschlossen» antippen (wieder öffnen).' : S.modus === 'stift' ? 'Mit Stift oder Finger direkt auf den Plan schreiben (z. B. Masse, Notizen). Mit zwei Fingern zoomen. Erkennt das Tablet einen Stift, schiebt der Finger den Plan.'
         : S.modus === 'bearb' ? 'Nachbearbeiten (nur dieses Blatt): Linie anklicken → Griffe ziehen (Endpunkte, blaues Quadrat = Abstand), oben «Löschen» oder «Original». Masse bleiben erhalten.'
         : S.modus === 'neu' ? 'Neue Masslinie: von Kante zu Kante ziehen (rastet waagrecht/senkrecht ein). Danach öffnet sich die Eingabe für Bezeichnung und Mass. Gilt nur für dieses Blatt (Geschoss).'
         : S.modus === 'foto' ? 'Foto: auf die Stelle im Plan tippen, wo fotografiert wird – die Kamera öffnet sich. Das Foto erscheint als blaues Kamera-Symbol (F1, F2 …); antippen zum Ansehen.'
@@ -803,6 +804,8 @@ function zeichneBlatt(){
       <div class="acts"><button class="btn" type="button" id="blattWeg">Blatt löschen</button></div>
       <p class="sync" id="sync">${esc(S.sync)}</p>
     </div></div>`;
+  if (zu) { document.querySelectorAll('[data-m]:not([data-m="ansehen"]), #glm, #fotoOhne, #blattWeg').forEach(k => { k.disabled = true; k.title = 'Blatt ist abgeschlossen'; });
+    document.querySelectorAll('[data-ist], #notiz').forEach(i => i.readOnly = true); }
   const svg = $('#svg'); let url = bildUrls[v.bild] || '', strich = null, stiftDa = S.stiftDa || false, neuZug = null, griffZug = null;
   const fangB = (a, q) => { const dx = q.x - a.x, dy = q.y - a.y, w = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90; return (w < 5 || w > 85) ? (Math.abs(dx) > Math.abs(dy) ? {x: q.x, y: a.y} : {x: a.x, y: q.y}) : q; };
   const gpB = () => { const vb = S.vb[key]; return Math.max(vb.w / Math.max(1, svg.clientWidth), vb.h / Math.max(1, svg.clientHeight)); };
@@ -816,6 +819,7 @@ function zeichneBlatt(){
     nachZoom(){ if (zusatzLinie(b, S.aktiv) || S.bsel) malen(); },
     start(e, p){
       if (e.pointerType === 'pen') stiftDa = S.stiftDa = true;
+      if (zu) return false;
       const gr = e.target.closest && e.target.closest('.griff');   // Zusatzlinie verschieben: Endpunkte (Kreise) oder Masslinie (Quadrat)
       if (gr && e.button === 0) { const id = gr.dataset.l; let l = (b.linien || []).find(x => x.id === id);
         if (!l && S.modus === 'bearb') { const eff = linienVon(v, b).find(x => x.id === id); if (eff) { b.anp = b.anp || {};   // Plan-Linie: Verschiebung nur für dieses Blatt
@@ -850,6 +854,7 @@ function zeichneBlatt(){
       const t = ziel && ziel.closest ? ziel : e.target, fo = t.closest && t.closest('.foto'); if (fo) return grossbild(b, fo.dataset.foto);
       if (S.modus === 'foto') { S.fotoOrt = {x: Math.round(p.x), y: Math.round(p.y)}; $('#kamera').click(); return; }   // Kamera öffnet (Tippen = Nutzeraktion)
       const ml = t.closest && t.closest('.ml');
+      if (zu) return zeigeRechnung(ml && ml.dataset.l);
       if (S.modus === 'bearb') { S.bsel = ml ? ml.dataset.l : null; malen(); return bearbLeiste(); }
       if (ml) { if (listeZeigen() && !TOUCH) fokus(ml.dataset.l); else eingabe(b, v, ml.dataset.l, e.pointerType === 'pen', malen); } }
   });
@@ -871,10 +876,18 @@ function zeichneBlatt(){
       S.bsel = null; k.remove(); malen(); };
   }
   bearbLeiste();
+  // Gesperrtes Blatt: Antippen eines Masses zeigt Bezeichnung, Ergebnis und Rechnung
+  function zeigeRechnung(id){
+    document.querySelectorAll('.schiebeleiste').forEach(x => x.remove()); S.aktiv = id || null; malen(); if (!id) return;
+    const l = linienVon(v, b).find(x => x.id === id); if (!l) return; const w = b.werte[id], so = soll(v, l);
+    const k = document.createElement('div'); k.className = 'schiebeleiste';
+    k.innerHTML = `<span><b>${esc(l.text || 'Linie ' + l.nr)}</b> · ${w && w.v != null ? (w.f ? esc(rechnungTxt(w)) : mmTxt(w.v) + ' mm') : (b.hand && b.hand[id] ? 'von Hand geschrieben' : 'nicht gemessen')}${so != null ? ' · Plan ' + so : ''}</span><button class="btn primary" type="button">OK</button>`;
+    document.body.appendChild(k); k.querySelector('button').onclick = () => { k.remove(); S.aktiv = null; malen(); };
+  }
   document.querySelectorAll('[data-f]').forEach(k => k.onclick = () => { S.farbe = k.dataset.f; zeichneBlatt(); });
   dickeVerdrahten(null, $('.werkzeuge'));
   if ($('#rueck')) $('#rueck').onclick = () => { const s = (b.ink || []).filter(x => !x.weg).slice(-1)[0]; if (!s) return; s.weg = true; s.zeit = b.zeit = jetzt(); speichern(); malen(); };
-  $('#zurueck').onclick = () => { S.ansicht = 'auftrag'; S.aktiv = null; eingabeZu(); zeichne(); };
+  $('#zurueck').onclick = () => { S.ansicht = 'auftrag'; S.aktiv = null; eingabeZu(); document.querySelectorAll('.schiebeleiste').forEach(x => x.remove()); zeichne(); };
   $('#listeKn').onclick = () => { S.liste = !listeZeigen(); ls.set('planaufmass-liste', S.liste ? '1' : '0'); zeichneBlatt(); };
   $('#fotoOhne').onclick = () => { S.fotoOrt = null; $('#kamera').click(); };
   $('#kamera').onchange = async ev => { const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
@@ -887,7 +900,7 @@ function zeichneBlatt(){
   $('#druckL').onclick = () => drucken([b], true); $('#druckV').onclick = () => { if (b.fertig) drucken([b], false); };
   $('#fertigKn').onclick = () => { if (b.fertig) { if (!confirm('Blatt «' + b.geschoss + '» wieder öffnen?')) return; b.fertig = null; }
     else { const p = fortschritt(b); if (p.g < p.n && !confirm('Erst ' + p.g + ' von ' + p.n + ' Massen erfasst. Trotzdem abschliessen?')) return; b.fertig = {zeit: jetzt(), von: ls.get('kuerzel') || ''}; }
-    eingabeZu(); b.zeit = jetzt(); merkeIndex(); speichern(); zeichneBlatt(); };
+    eingabeZu(); document.querySelectorAll('.schiebeleiste').forEach(x => x.remove()); b.zeit = jetzt(); merkeIndex(); speichern(); zeichneBlatt(); };
   $('#glm').onclick = () => GLM.verbinden();
   $('#notiz').onchange = () => { b.notiz = $('#notiz').value; b.zeit = jetzt(); speichern(); };
   $('#blattWeg').onclick = () => { if (!confirm('Blatt «' + b.geschoss + '» löschen?')) return; b.weg = true; b.zeit = jetzt(); merkeIndex(); speichern(); S.ansicht = 'auftrag'; zeichne(); };
@@ -922,6 +935,7 @@ function sichtbarMachen(v, l, d){
 }
 function eingabeZu(){ document.querySelectorAll('.schiebeleiste').forEach(x => x.remove()); if (S.eingabeSichern) { try { S.eingabeSichern(); } catch(e){} S.eingabeSichern = null; } const d = $('#eing'); if (d) d.remove(); }   // offene Eingabe immer zuerst sichern
 function eingabe(b, v, lid, stift, malen){
+  if (b.fertig) return;   // abgeschlossen = gesperrt
   eingabeZu(); const L = linienVon(v, b), i = L.findIndex(x => x.id === lid), l = L[i]; if (!l) return;
   S.aktiv = lid; if (malen) malen();
   const so = soll(v, l), w = b.werte[lid], G = geo(v, l, ''), seite = G.bw / G.bh;
@@ -1005,7 +1019,7 @@ function grossbild(b, fid){
 // Bosch-Messwert → aktive Linie, danach nächste leere
 GLM.beiStatus = () => { const k = $('#glm'); if (k) { k.textContent = GLM.text(); k.classList.toggle('primary', GLM.status === 'ok'); } };
 GLM.beiWert = w => {
-  if (S.ansicht !== 'blatt') return; const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v) return;
+  if (S.ansicht !== 'blatt') return; const b = blatt(S.bid), v = b && vorlage(b.vorlage); if (!v || b.fertig) return;
   const L = linienVon(v, b), id = S.aktiv || (L.find(l => !(b.werte[l.id] && b.werte[l.id].v != null)) || {}).id; if (!id) return;
   if (S.eingabeSichern && id !== S.aktiv) S.eingabeSichern();   // getippte Zahl im offenen Fenster nicht verlieren
   setzeWert(b, v, id, w, null); if (navigator.vibrate) navigator.vibrate(60);
