@@ -294,8 +294,8 @@ function planInhalt(v, b, opt){
       ${G.vor ? `<circle cx="${l.x1}" cy="${l.y1}" r="${F * .8}" fill="transparent"/><text x="${G.vor.x}" y="${G.vor.y + F * .38}" font-size="${G.fs}" font-weight="700" fill="${farbe}" font-family="Arial,sans-serif">${G.vor.t}</text>` : ''}
     </g>`;
     if (opt.modus === 'vorlage' && sel) s += (l.art === 'h' ? [[l.x1, l.y1, 1]] : [[l.x1, l.y1, 1], [l.x2, l.y2, 2]]).map(([x, y, e]) =>
-      `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${F * .55}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
-      + (l.art === 'h' ? '' : `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(G.a1x + G.a2x) / 2 - F * .5}" y="${(G.a1y + G.a2y) / 2 - F * .5}" width="${F}" height="${F}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`);
+      `<circle class="griff" data-l="${l.id}" data-e="${e}" cx="${x}" cy="${y}" r="${Math.max(F * .55, (opt.gp || 0) * 16)}" fill="#fff" fill-opacity=".6" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"/>`).join('')
+      + (l.art === 'h' ? '' : `<rect class="griff" data-l="${l.id}" data-e="ab" x="${(G.a1x + G.a2x) / 2 - Math.max(F, (opt.gp || 0) * 30) / 2}" y="${(G.a1y + G.a2y) / 2 - Math.max(F, (opt.gp || 0) * 30) / 2}" width="${Math.max(F, (opt.gp || 0) * 30)}" height="${Math.max(F, (opt.gp || 0) * 30)}" fill="${BLAU}" fill-opacity=".35" stroke="${BLAU}" stroke-width="${sw * 1.5}" style="cursor:move"><title>Masslinie verschieben</title></rect>`);
   }
   if (b && !opt.leer) fotosVon(b).forEach((f, i) => { if (f.x == null) return; const z = F * .9;
     s += `<g class="foto" data-foto="${f.id}" style="cursor:pointer"><rect x="${f.x - z}" y="${f.y - z * .7}" width="${z * 2}" height="${z * 1.4}" rx="${z * .25}" fill="${BLAU}"/>
@@ -313,7 +313,7 @@ function einpassen(key, v){ S.vb[key] = {x: 0, y: 0, w: v.w, h: v.h}; }
 function zoom(svg, key, f, cx, cy){ const vb = S.vb[key]; vb.x = cx - (cx - vb.x) * f; vb.y = cy - (cy - vb.y) * f; vb.w *= f; vb.h *= f; setzeVb(svg, key); }
 function planSteuerung(svg, key, h){   // h: {start(e,p) → true, wenn eine eigene Aktion beginnt; bewege(e,p); ende(e,p); tipp(e,p); stift(e)}
   const ptr = new Map(); let pinch = null, pan = null, eigen = false, bewegt = false, start = null, ziel = null;   // ziel: Element unter dem Finger beim Drücken (pointerup liefert wegen Capture das SVG)
-  svg.addEventListener('wheel', e => { e.preventDefault(); const p = toPlan(svg, e); zoom(svg, key, Math.exp(e.deltaY * .0015), p.x, p.y); }, {passive: false});
+  svg.addEventListener('wheel', e => { e.preventDefault(); const p = toPlan(svg, e); zoom(svg, key, Math.exp(e.deltaY * .0015), p.x, p.y); if (h.nachZoom) h.nachZoom(); }, {passive: false});
   svg.addEventListener('contextmenu', e => e.preventDefault());
   svg.addEventListener('pointerdown', e => {
     ziel = e.target; svg.setPointerCapture(e.pointerId); ptr.set(e.pointerId, {x: e.clientX, y: e.clientY}); bewegt = false; start = {x: e.clientX, y: e.clientY};
@@ -336,7 +336,7 @@ function planSteuerung(svg, key, h){   // h: {start(e,p) → true, wenn eine eig
   });
   const ende = e => {
     if (!ptr.has(e.pointerId)) return; ptr.delete(e.pointerId);
-    if (pinch) { if (ptr.size < 2) pinch = null; return; }
+    if (pinch) { if (ptr.size < 2) { pinch = null; if (h.nachZoom) h.nachZoom(); } return; }
     if (eigen) { eigen = false; if (h.ende) h.ende(e, toPlan(svg, e)); return; }
     if (pan && !bewegt && h.tipp) h.tipp(e, toPlan(svg, e), ziel);
     pan = null;
@@ -344,8 +344,8 @@ function planSteuerung(svg, key, h){   // h: {start(e,p) → true, wenn eine eig
   svg.addEventListener('pointerup', ende); svg.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); pinch = null; pan = null; if (eigen && h.abbruch) h.abbruch(); eigen = false; });
 }
 const zoomKnoepfe = () => `<button class="btn klein" type="button" data-z="1.4" aria-label="Verkleinern">−</button><button class="btn klein" type="button" data-z="0.7" aria-label="Vergrössern">+</button><button class="btn klein" type="button" data-z="0">Einpassen</button>`;
-function zoomVerdrahten(svg, key, v){ document.querySelectorAll('[data-z]').forEach(k => k.onclick = () => { const f = +k.dataset.z;
-  if (!f) { einpassen(key, v); setzeVb(svg, key); return; } const vb = S.vb[key]; zoom(svg, key, f, vb.x + vb.w / 2, vb.y + vb.h / 2); }); }
+function zoomVerdrahten(svg, key, v, cb){ document.querySelectorAll('[data-z]').forEach(k => k.onclick = () => { const f = +k.dataset.z;
+  if (!f) { einpassen(key, v); setzeVb(svg, key); } else { const vb = S.vb[key]; zoom(svg, key, f, vb.x + vb.w / 2, vb.y + vb.h / 2); } if (cb) cb(); }); }
 
 // ---------- Ansichten ----------
 function zeichne(){
@@ -574,9 +574,11 @@ function zeichneVorlage(){
     </div></div>`;
   const svg = $('#svg');
   let url = bildUrls[v.bild] || '', vorschau = null;
-  const malen = () => { svg.innerHTML = planInhalt(v, null, {modus: 'vorlage', sel: S.sel, url, vorschau}); };
+  const gp = () => { const vb = S.vb[key]; return Math.max(vb.w / Math.max(1, svg.clientWidth), vb.h / Math.max(1, svg.clientHeight)); };   // Planpunkte je Bildschirmpixel
+  const malen = () => { svg.innerHTML = planInhalt(v, null, {modus: 'vorlage', sel: S.sel, url, vorschau, gp: gp()}); };
+  let zt = 0; const nachZoom = () => { clearTimeout(zt); zt = setTimeout(() => { if (S.sel) malen(); }, 120); };
   setzeVb(svg, key); malen(); bildUrl(v.bild).then(u => { url = u; malen(); });
-  zoomVerdrahten(svg, key, v);
+  zoomVerdrahten(svg, key, v, nachZoom);
   const fang = (a, p, e) => { if (e.altKey) return p; const dx = p.x - a.x, dy = p.y - a.y, w = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90;
     if (w < 5 || w > 85) return Math.abs(dx) > Math.abs(dy) ? {x: p.x, y: a.y} : {x: a.x, y: p.y}; return p; };
   const norm = l => { const L = laenge(l) || 1; return {ux: (l.x2 - l.x1) / L, uy: (l.y2 - l.y1) / L, nx: -(l.y2 - l.y1) / L, ny: (l.x2 - l.x1) / L}; };
@@ -598,6 +600,7 @@ function zeichneVorlage(){
   let zug = null;   // {art:'neu'|'griff'|'wahl'|'kette'|'fix', a, p, l, e}
   const strich = (a, p, farbe) => `<line x1="${a.x}" y1="${a.y}" x2="${p.x}" y2="${p.y}" stroke="${farbe}" stroke-width="${Math.max(2, Math.max(v.w, v.h) / 100 * .05)}" stroke-dasharray="${Math.max(v.w, v.h) / 100 * .5}"/>`;
   planSteuerung(svg, key, {
+    nachZoom,
     schweben(e, p){   // PC: nach dem Ziehen die Masslinie mit der Maus wegschieben, Klick setzt sie; im Ketten-Modus Vorschau des nächsten Abschnitts
       if (S.abWahl) { const l = linienVon(v).find(x => x.id === S.abWahl); if (!l) { S.abWahl = null; return; } setzeAb(l, abstand(l, p)); malen(); return; }
       if (S.modus === 'kette' && ketteBasis()) { const q = ketteZiel(p); vorschau = strich({x: ketteBasis().x2, y: ketteBasis().y2}, q, ROT); malen(); }
